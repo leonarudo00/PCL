@@ -45,3 +45,12 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+*\ipch
+*.sdf 
+*.bak
+*.old
+*_UpgradeReport_File 
+*.svn
+*_svn
+*.opensdf
