@@ -232,6 +232,7 @@ void main()
 		window.swapBuffers();
 	}
 
+
 	try{
 		// objƒtƒ@ƒCƒ‹‚ğ“Ç‚İ‚Ş
 		pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh() );
