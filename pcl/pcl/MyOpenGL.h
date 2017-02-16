@@ -92,4 +92,20 @@ public:
 		}
 	}
 
+	// ‰æŠp‚©‚ç“§‹“Š‰e•ÏŠ·s—ñ‚ğ‹‚ß‚é
+	void cameraMatrix( float fovy, float aspect, float Near, float Far, GLfloat *matrix )
+	{
+		float f = 1.0f / tanf( fovy * 0.5f * 3.141593f / 180.0f );
+		float dz = Far - Near;
+
+		matrix[ 0 ]  = f / aspect;
+		matrix[ 5 ]  = f;
+		matrix[ 10 ] = -( Far + Near ) / dz;
+		matrix[ 11 ] = -1.0f;
+		matrix[ 14 ] = -2.0f * Far * Near / dz;
+		matrix[ 1 ] = matrix[ 2 ] = matrix[ 3 ] = matrix[ 4 ] = 
+		matrix[ 6 ] = matrix[ 7 ] = matrix[ 8 ] = matrix[ 9 ] = 
+		matrix[ 12 ] = matrix[ 13 ] = matrix[ 15 ] = 0.0f;
+	}
+
 };

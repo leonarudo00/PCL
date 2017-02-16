@@ -8,7 +8,13 @@ class Object
 	GLuint vao;
 
 	// 頂点バッファオブジェクト名
-	GLuint vbo;
+	GLuint vbo[ 2 ];
+
+	// 頂点バッファオブジェクトのメモリを参照するポインタ
+	typedef GLfloat Position[ 3 ];
+	Position *poosition;
+	typedef GLuint Edge[ 2 ];
+	Edge *edge;
 
 public:
 	// 頂点属性
@@ -28,8 +34,8 @@ public:
 		glBindVertexArray( vao );
 
 		// 頂点バッファオブジェクト
-		glGenBuffers( 1, &vbo );
-		glBindBuffer( GL_ARRAY_BUFFER, vbo );
+		glGenBuffers( 2, vbo );
+		glBindBuffer( GL_ARRAY_BUFFER, vbo[0] );
 		glBufferData( GL_ARRAY_BUFFER, vertexcount * sizeof( Vertex ), vertex, GL_STATIC_DRAW );
 
 		// 結合されている頂点バッファオブジェクトをin変数から参照できるようにする
@@ -43,7 +49,7 @@ public:
 		glDeleteBuffers( 1, &vao );
 
 		// 頂点バッファオブジェクトを削除する
-		glDeleteBuffers( 1, &vbo );
+		glDeleteBuffers( 2, vbo );
 	}
 
 private:

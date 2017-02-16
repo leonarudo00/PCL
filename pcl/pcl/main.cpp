@@ -213,7 +213,9 @@ void main()
 
 	// 平行投影変換行列を求める
 	//myOpenGL.orthogonalMatrix( -1.0f, 1.0f, -1.0f, 1.0f, 7.0f, 11.0f, temp1 );
-	myOpenGL.perspectiveMatrix( -1.0f, 1.0f, -1.0f, 1.0f, 7.0f, 11.0f, temp1 );
+	//myOpenGL.perspectiveMatrix( -1.0f, 1.0f, -1.0f, 1.0f, 7.0f, 11.0f, temp1 );
+	myOpenGL.cameraMatrix( 30.f, 1.0f, 7.0f, 11.0f, temp1 );
+
 	// 視野変換行列を求める
 	myOpenGL.lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 視野変換行列と投影変換行列の積を求める
