@@ -155,6 +155,7 @@
     <None Include="point.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MyOpenGL.h" />
     <ClInclude Include="object.h" />
     <ClInclude Include="shape.h" />
     <ClInclude Include="window.h" />

@@ -19,6 +19,7 @@
 #include <GLFW/glfw3.h>
 #include "window.h"
 #include "Shape.h"
+#include "MyOpenGL.h"
 
 // objデータを取得
 const char filename[] = "bunny.obj";
@@ -177,8 +178,14 @@ const Object::Vertex rectangleVertex[]=
 	{ -0.5f,  0.5 }
 };
 
+GLfloat projectionMatrix[ 16 ];		// 投影変換行列
+GLfloat temp0[ 16 ], temp1[ 16 ];	// 一時的な変換行列
+
 void main()
 {
+	// 自作ヘッダ
+	MyOpenGL myOpenGL;
+
 	// GLFW を初期化する
 	if ( glfwInit() == GL_FALSE ){
 		// 初期化に失敗した
@@ -204,10 +211,19 @@ void main()
 	// プログラムオブジェクトを作成する
 	const GLuint program( loadProgram( "point.vert", "point.frag" ) );
 
+	// 平行投影変換行列を求める
+	//myOpenGL.orthogonalMatrix( -1.0f, 1.0f, -1.0f, 1.0f, 7.0f, 11.0f, temp1 );
+	myOpenGL.perspectiveMatrix( -1.0f, 1.0f, -1.0f, 1.0f, 7.0f, 11.0f, temp1 );
+	// 視野変換行列を求める
+	myOpenGL.lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
+	// 視野変換行列と投影変換行列の積を求める
+	myOpenGL.multiplyMatrix( temp0, temp1, projectionMatrix );
+
 	// uniform変数の場所を取得する
 	const GLint sizeLoc( glGetUniformLocation( program, "size" ) );
 	const GLint scaleLoc( glGetUniformLocation( program, "scale" ) );
 	const GLint locationLoc( glGetUniformLocation( program, "location" ) );
+	const GLint projectionMatrixLoc( glGetUniformLocation( program, "projectionMatrix" ) );
 
 	// 図形データを作成する
 	std::unique_ptr<const Shape> shape( new Shape( 2, 4, rectangleVertex ) );
@@ -224,6 +240,7 @@ void main()
 		glUniform2fv( sizeLoc, 1, window.getSize() );
 		glUniform1f( scaleLoc, window.getScale() );
 		glUniform2fv( locationLoc, 1, window.getLocation() );
+		glUniformMatrix4fv( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
 
 		// 図形を描画する
 		shape->draw();
