@@ -20,6 +20,7 @@
 #include "window.h"
 #include "Shape.h"
 #include "MyOpenGL.h"
+#include "Sphere.h"
 
 // objデータを取得
 const char filename[] = "bunny.obj";
@@ -229,6 +230,7 @@ void main()
 
 	// 図形データを作成する
 	std::unique_ptr<const Shape> shape( new Shape( 2, 4, rectangleVertex ) );
+	Sphere sphere( 10, 10 );
 
 	// ウィンドウが開いている間繰り返す
 	while ( window.shouldClose() == GL_FALSE ){
@@ -245,7 +247,9 @@ void main()
 		glUniformMatrix4fv( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
 
 		// 図形を描画する
-		shape->draw();
+		//shape->draw();
+		sphere.draw();
+
 
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();
