@@ -155,10 +155,10 @@
     <None Include="point.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="MyOpenGL.h" />
     <ClInclude Include="object.h" />
     <ClInclude Include="shape.h" />
-    <ClInclude Include="Sphere.h" />
     <ClInclude Include="window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

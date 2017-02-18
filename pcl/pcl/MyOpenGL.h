@@ -1,4 +1,5 @@
 #pragma once
+#define pi	3.14159265f	// ‰~Žü—¦
 #include <iostream>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
