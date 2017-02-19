@@ -75,6 +75,14 @@ public:
 			}
 		}
 
+		// 頂点バッファオブジェクトのメモリをプログラムのメモリ空間から切り離す
+		glUnmapBuffer( GL_ARRAY_BUFFER );
+
+		// 頂点バッファオブジェクトをattribute変数に対応づける
+		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		// 0番のattrib変数を使用可能にする
+		glEnableVertexAttribArray( 0 );
+
 		// インデックスを設定する
 		for ( int j = 0; j < stacks - 1; ++j ){
 			for ( int i = 0; i < slices - i; ++i ){
@@ -93,28 +101,21 @@ public:
 		}
 
 		// 頂点バッファオブジェクトのメモリをプログラムのメモリ空間から切り離す
-		glUnmapBuffer( GL_ARRAY_BUFFER );
 		glUnmapBuffer( GL_ELEMENT_ARRAY_BUFFER );
 
-		// 頂点バッファオブジェクトをattribute変数に対応づける
-		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
-		// 0番のattrib変数を使用可能にする
-		glEnableVertexAttribArray( 0 );
-
 		// 頂点バッファオブジェクトの結合を解除する
-		//glBindVertexArray( 0 );
-		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
-		glBindBuffer( GL_ARRAY_BUFFER, 0 );
+		glBindVertexArray( 0 );
+
 	}
 
 	// 描画
 	void draw()
 	{
-		//updatePosition();
+		updatePosition();
 
 		glBindVertexArray( vao );
 		//glDrawArrays( GL_POINTS, 0, vertices );
-		glDrawElements( GL_TRIANGLES, indexes, GL_UNSIGNED_INT, &position );
+		glDrawElements( GL_TRIANGLES, indexes, GL_UNSIGNED_INT, 0 );
 	}
 
 	// 頂点位置の更新
