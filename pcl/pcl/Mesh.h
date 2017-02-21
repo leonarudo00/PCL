@@ -11,13 +11,15 @@ class Mesh
 {
 	// 頂点バッファオブジェクトのメモリを参照するポインタ
 	typedef GLfloat Position[ 3 ];
+	typedef GLfloat Normal[ 3 ];
 	typedef GLuint Face[ 3 ];
 	Position *position;
+	Normal *normal;
 	Face *face;
 
-	GLint	vertices;			// 頂点数
+	GLuint	vertices;			// 頂点数
 
-	GLint	indexes;			// インデックスの数
+	GLuint	indexes;			// インデックスの数
 
 	GLuint	vao;				// 頂点配列オブジェクト
 	
@@ -107,11 +109,41 @@ public:
 		glBindVertexArray( 0 );
 
 	}
+	// コンストラクタ
+	// name: ファイル名
+	// normalize: 正規化の有無
+	Mesh( const char *name, bool normalize )
+	{
+		// OBJファイルを読み込む
+		MyOpenGL::loadOBJ( name, vertices, position, normal, indexes, face, normalize );
+
+		// 頂点配列オブジェクトを作成する
+		glGenVertexArrays( 1, &vao );
+		glBindVertexArray( vao );
+
+		// 頂点バッファオブジェクトを作成する
+		glGenBuffers( 1, &positionBuffer );
+		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
+		glGenBuffers( 1, &indexBuffer );
+		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+
+		// 頂点バッファオブジェクトにメモリ領域を確保する
+		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices, position, GL_DYNAMIC_DRAW );
+		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( Face ) * indexes, face, GL_STATIC_DRAW );
+
+		// 頂点バッファオブジェクトをattribute変数に対応づける
+		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		// 0番のattrib変数を使用可能にする
+		glEnableVertexAttribArray( 0 );
+
+		// 頂点バッファオブジェクトの結合を解除する
+		glBindVertexArray( 0 );
+	}
 
 	// 描画
 	void draw()
 	{
-		updatePosition();
+		//updatePosition();
 
 		glBindVertexArray( vao );
 		//glDrawArrays( GL_POINTS, 0, vertices );
