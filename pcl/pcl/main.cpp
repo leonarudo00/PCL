@@ -87,11 +87,13 @@ void main()
 	//Mesh mesh( 16, 12 );
 	Mesh mesh( filename, false );
 
+	// 隠面消去処理を有効にする
+	glEnable( GL_DEPTH_TEST );
 
 	// ウィンドウが開いている間繰り返す
 	while ( window.shouldClose() == GL_FALSE ){
 		// ウィンドウを消去する
-		glClear( GL_COLOR_BUFFER_BIT );
+		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 		// シェーダプログラムの使用開始
 		glUseProgram( program );

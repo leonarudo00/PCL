@@ -147,7 +147,7 @@ public:
 
 		glBindVertexArray( vao );
 		//glDrawArrays( GL_POINTS, 0, vertices );
-		glDrawElements( GL_TRIANGLES, indexes, GL_UNSIGNED_INT, 0 );
+		glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
 	}
 
 	// 頂点位置の更新
