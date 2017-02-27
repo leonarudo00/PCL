@@ -4,6 +4,7 @@ uniform		float	scale;
 uniform		vec2	location;
 uniform		mat4	projectionMatrix;
 in			vec4	position;
+in			vec4	normal;
 out			vec3	vc;					// í∏ì_êF
 
 void main()

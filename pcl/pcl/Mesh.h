@@ -27,6 +27,8 @@ class Mesh
 
 	GLuint	indexBuffer;		// 頂点インデックスを格納する頂点バッファオブジェクト
 
+	GLuint	normalBuffer;		// 頂点法線を格納する頂点バッファオブジェクト
+
 	int		frame = 0;			// フレーム
 
 	int		cycle = 100;		// 周波数
@@ -124,17 +126,33 @@ public:
 		// 頂点バッファオブジェクトを作成する
 		glGenBuffers( 1, &positionBuffer );
 		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
+		glGenBuffers( 1, &normalBuffer );
+		glBindBuffer( GL_ARRAY_BUFFER, normalBuffer );
 		glGenBuffers( 1, &indexBuffer );
 		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
 
-		// 頂点バッファオブジェクトにメモリ領域を確保する
+		// 頂点位置バッファオブジェクトにメモリ領域を確保する
 		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices, position, GL_DYNAMIC_DRAW );
-		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( Face ) * indexes, face, GL_STATIC_DRAW );
-
-		// 頂点バッファオブジェクトをattribute変数に対応づける
+		// attribute変数に対応づける
 		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
 		// 0番のattrib変数を使用可能にする
 		glEnableVertexAttribArray( 0 );
+		// メモリ空間から切り離す
+		glUnmapBuffer( GL_ARRAY_BUFFER );
+		glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+		// 頂点法線位置バッファオブジェクトにメモリ領域を確保する
+		glBufferData( GL_ARRAY_BUFFER, sizeof( Normal ) * vertices, normal, GL_DYNAMIC_DRAW );
+		// attribute変数に対応づける
+		glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		// 1番のattrib変数を使用可能にする
+		glEnableVertexAttribArray( 1 );
+		// メモリ空間から切り離す
+		glUnmapBuffer( GL_ARRAY_BUFFER );
+		glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+		// 頂点インデックスバッファオブジェクトにメモリ領域を確保する
+		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( Face ) * indexes, face, GL_STATIC_DRAW );
 
 		// 頂点バッファオブジェクトの結合を解除する
 		glBindVertexArray( 0 );
@@ -148,6 +166,24 @@ public:
 		glBindVertexArray( vao );
 		//glDrawArrays( GL_POINTS, 0, vertices );
 		glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
+	}
+
+	// 法線の描画
+	void drawNormal()
+	{
+
+		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
+		glBufferData( GL_ARRAY_BUFFER, sizeof( Position )*vertices * 2, NULL, GL_STATIC_DRAW );
+
+		Position *normalPos = ( Position* )glMapBuffer( GL_ARRAY_BUFFER, GL_WRITE_ONLY );
+
+		for ( int i = 0; i < vertices; i++ ){
+			( *normalPos )[ 0 ] = ( *position )[ 0 ];
+		}
+
+		glUnmapBuffer( GL_ARRAY_BUFFER );
+		glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
 	}
 
 	// 頂点位置の更新

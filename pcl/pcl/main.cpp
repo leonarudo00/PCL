@@ -25,8 +25,6 @@
 // objデータを取得
 const char filename[] = "bunny.obj";
 
-
-
 // 矩形の頂点の位置
 const Object::Vertex rectangleVertex[]=
 {
@@ -107,7 +105,6 @@ void main()
 		// 図形を描画する
 		//shape->draw();
 		mesh.draw();
-
 
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();
