@@ -22,12 +22,16 @@ class Mesh
 	GLuint	indexes;			// インデックスの数
 
 	GLuint	vao;				// 頂点配列オブジェクト
+
+	GLuint	vao2;
 	
 	GLuint	positionBuffer;		// 頂点位置を格納する頂点バッファオブジェクト
 
 	GLuint	indexBuffer;		// 頂点インデックスを格納する頂点バッファオブジェクト
 
 	GLuint	normalBuffer;		// 頂点法線を格納する頂点バッファオブジェクト
+
+	GLuint	normalPointsBuffer;	// 法線を描画するための頂点位置を格納する頂点バッファオブジェクト
 
 	int		frame = 0;			// フレーム
 
@@ -156,6 +160,8 @@ public:
 
 		// 頂点バッファオブジェクトの結合を解除する
 		glBindVertexArray( 0 );
+
+		drawNormal( position, normal );
 	}
 
 	// 描画
@@ -163,27 +169,55 @@ public:
 	{
 		//updatePosition();
 
-		glBindVertexArray( vao );
+		//glBindVertexArray( vao );
 		//glDrawArrays( GL_POINTS, 0, vertices );
-		glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
+		//glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
+
+		glBindVertexArray( vao2 );
+		glDrawArrays( GL_LINES, 0, vertices * 2 );
 	}
 
 	// 法線の描画
-	void drawNormal()
+	void drawNormal( Position *position, Normal *normal )
 	{
+		// 頂点配列オブジェクトを作成する
+		glGenVertexArrays( 1, &vao2 );
+		glBindVertexArray( vao2 );
 
-		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
-		glBufferData( GL_ARRAY_BUFFER, sizeof( Position )*vertices * 2, NULL, GL_STATIC_DRAW );
+		// 頂点バッファオブジェクトを作成する
+		glGenBuffers( 1, &normalPointsBuffer );
+		glBindBuffer( GL_ARRAY_BUFFER, normalPointsBuffer );
+		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices * 2, NULL, GL_STATIC_DRAW );
 
 		Position *normalPos = ( Position* )glMapBuffer( GL_ARRAY_BUFFER, GL_WRITE_ONLY );
 
-		for ( int i = 0; i < vertices; i++ ){
-			( *normalPos )[ 0 ] = ( *position )[ 0 ];
+		// 法線を描画する頂点の位置を設定する
+		for ( int i = 0; i < vertices; ++i ){
+				( *normalPos )[ 0 ] = ( *position )[ 0 ];
+				( *normalPos )[ 1 ] = ( *position )[ 1 ];
+				( *normalPos )[ 2 ] = ( *position )[ 2 ];
+
+				++normalPos;
+
+				( *normalPos )[ 0 ] = ( *position )[ 0 ] + ( *normal )[ 0 ] * 0.1;
+				( *normalPos )[ 1 ] = ( *position )[ 1 ] + ( *normal )[ 1 ] * 0.1;
+				( *normalPos )[ 2 ] = ( *position )[ 2 ] + ( *normal )[ 2 ] * 0.1;
+
+				++normalPos;
+				++position;
+				++normal;
 		}
+
+		// 頂点バッファオブジェクトをattribute変数に対応づける
+		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		// 0番のattrib変数を使用可能にする
+		glEnableVertexAttribArray( 0 );
 
 		glUnmapBuffer( GL_ARRAY_BUFFER );
 		glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
+		// 頂点バッファオブジェクトの結合を解除する
+		glBindVertexArray( 0 );
 	}
 
 	// 頂点位置の更新
