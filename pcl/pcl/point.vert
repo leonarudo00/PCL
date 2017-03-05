@@ -2,9 +2,9 @@
 uniform		vec2	size;
 uniform		float	scale;
 uniform		vec2	location;
-uniform		mat4	projectionMatrix;
-in			vec4	position;
-in			vec4	normal;
+uniform		mat4	projectionMatrix;	// 透視投影変換行列
+in			vec4	position;			// 頂点位置
+in			vec4	normal;				// 頂点法線
 out			vec3	vc;					// 頂点色
 
 void main()

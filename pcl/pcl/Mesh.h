@@ -7,6 +7,9 @@
 // 自作ヘッダ
 #include "MyOpenGL.h"
 
+#include <pcl/visualization/cloud_viewer.h>
+#include <pcl/features/integral_image_normal.h>
+
 class Mesh
 {
 	// 頂点バッファオブジェクトのメモリを参照するポインタ
@@ -123,6 +126,13 @@ public:
 		// OBJファイルを読み込む
 		MyOpenGL::loadOBJ( name, vertices, position, normal, indexes, face, normalize );
 
+		// PCLでOBJファイルを読み込む
+		pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh() );
+		pcl::PointCloud < pcl::PointXYZ >::Ptr obj_pcd( new pcl::PointCloud<pcl::PointXYZ>() );
+		if ( pcl::io::loadPolygonFileOBJ( name, *mesh ) != -1 ){
+			pcl::fromPCLPointCloud2( mesh->cloud, *obj_pcd );
+		}
+
 		// 頂点配列オブジェクトを作成する
 		glGenVertexArrays( 1, &vao );
 		glBindVertexArray( vao );
@@ -136,7 +146,16 @@ public:
 		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
 
 		// 頂点位置バッファオブジェクトにメモリ領域を確保する
-		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices, position, GL_DYNAMIC_DRAW );
+		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices, NULL, GL_DYNAMIC_DRAW );
+		// 頂点バッファオブジェクトのメモリをプログラムのメモリ空間にマップする
+		position = ( Position* )glMapBuffer( GL_ARRAY_BUFFER, GL_WRITE_ONLY );
+		// 法線を描画する頂点の位置を設定する
+		for ( int i = 0; i < vertices; ++i ){
+			( *position )[ 0 ] = obj_pcd->points[ i ].x;
+			( *position )[ 1 ] = obj_pcd->points[ i ].y;
+			( *position )[ 2 ] = obj_pcd->points[ i ].z;
+			++position;
+		}
 		// attribute変数に対応づける
 		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
 		// 0番のattrib変数を使用可能にする
@@ -169,12 +188,12 @@ public:
 	{
 		//updatePosition();
 
-		//glBindVertexArray( vao );
+		glBindVertexArray( vao );
 		//glDrawArrays( GL_POINTS, 0, vertices );
-		//glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
+		glDrawElements( GL_POINTS, indexes * 3, GL_UNSIGNED_INT, 0 );
 
-		glBindVertexArray( vao2 );
-		glDrawArrays( GL_LINES, 0, vertices * 2 );
+		//glBindVertexArray( vao2 );
+		//glDrawArrays( GL_LINES, 0, vertices * 2 );
 	}
 
 	// 法線の描画
