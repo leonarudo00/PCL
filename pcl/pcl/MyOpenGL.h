@@ -485,5 +485,268 @@ namespace MyOpenGL{
 		return true;
 	}
 
-	
+	// TGAファイルを読み込む
+	// name:	読み込むファイル名
+	// width:	読み込んだファイルの幅
+	// height:	読み込んだファイルの高さ
+	// format:	読み込んだファイルのフォーマット
+	// return:	読み込んだ画像データのポインタ。読み込めなければnullptr
+	GLubyte *loadTga( const char *name, GLsizei *width, GLsizei *height, GLenum *format )
+	{
+		// ファイルを開く
+		std::ifstream file( name, std::ios::binary );
+
+		// ファイルが開けなかったらもどる
+		if ( !file )
+		{
+			std::cerr << "Error: Can't open file: " << name << std::endl;
+			return nullptr;
+		}
+
+		// ヘッダを読み込む
+		unsigned char header[ 18 ];
+		file.read( reinterpret_cast< char* >( header ), sizeof header );
+
+		// ヘッダの読み込みに失敗したらもどる
+		if ( file.bad() )
+		{
+			std::cerr << "Error: Can't read file header: " << name << std::endl;
+			file.close();
+			return nullptr;
+		}
+
+		// 幅と高さ
+		*width = header[ 13 ] << 8 | header[ 12 ];
+		*height = header[ 15 ] << 8 | header[ 14 ];
+
+		// 深度
+		const size_t depth( header[ 16 ] / 8 );
+		switch ( depth )
+		{
+			case 1:
+				*format = GL_RED;
+				break;
+			case 2:
+				*format = GL_RG;
+				break;
+			case 3:
+				*format = GL_BGR;
+			case 4:
+				*format = GL_BGRA;
+				break;
+			default:
+				// 存在しないフォーマットなら戻る
+				std::cerr << "Error: Unusable format: " << depth << std::endl;
+				file.close();
+				return nullptr;
+		}
+
+		// データサイズ
+		const size_t size( *width * *height * depth );
+
+		// 読み込みに使うメモリを確保する
+		GLubyte *const buffer( new( std::nothrow )GLubyte[ size ] );
+
+		// メモリが確保できなければもどる
+		if ( buffer == nullptr )
+		{
+			std::cerr << "Error: Too large file: " << name << std::endl;
+			file.close();
+			return nullptr;
+		}
+
+		// データを読み込む
+		if ( header[ 2 ] & 8 )
+		{
+			// RLE
+			size_t p( 0 );
+			char c;
+			while ( file.get( c ) )
+			{
+				if ( c & 0x80 )
+				{
+					// run-length packet
+					const size_t count( ( c & 0x7f ) + 1 );
+					if ( p + count * depth > size )break;
+					char tmp[ 4 ];
+					file.read( tmp, depth );
+					for ( size_t i = 0; i < count; ++i )
+					{
+						for ( size_t j = 0; j < depth; ) buffer[ p++ ] = tmp[ j++ ];
+					}
+				}
+				else
+				{
+					// raw packet
+					const size_t count( ( c + 1 ) * depth );
+					if ( p + count > size )break;
+					file.read( reinterpret_cast< char * >( buffer + p ), count );
+					p += count;
+				}
+			}
+		}
+		else
+		{
+			// 非圧縮
+			file.read( reinterpret_cast< char * >( buffer ), size );
+		}
+
+		// 読み込みに失敗していたら警告を出す
+		if ( file.bad() )
+		{
+			std::cerr << "Warning: Can't read image data: " << name << std::endl;
+		}
+
+		// ファイルを閉じる
+		file.close();
+
+		// 画像を読み込んだメモリを返す
+		return buffer;
+	}
+
+	// 配列に格納された画像のないようをTGAファイルに保存する
+	// width:	画像の幅
+	// height:	画像の高さ
+	// depth:	画像の１画素のバイト数
+	// buffer:	画像データ
+	// name:	ファイル名
+	// return:	保存に成功したら
+	bool saveTga( GLsizei width, GLsizei height, unsigned int depth, const void *buffer, const char *name )
+	{
+		// ファイルを開く
+		std::ofstream file( name, std::ios::binary );
+
+		// ファイルが開けなかったらもどる
+		if ( !file )
+		{
+			std::cerr << "Error: Can't open file: " << name << std::endl;
+			return false;
+		}
+
+		// 画像のヘッダ
+		const unsigned char type( depth == 0 ? 0 : depth < 3 ? 3 : 2 );
+		const unsigned char alpha( depth == 2 || depth == 4 ? 8 : 0 );
+		const unsigned char header[ 18 ] =
+		{
+			0,		// ID length
+			0,		// Color map type (none)
+			type,	// Image Type (2:RGB, 3:Grayscale)
+			0, 0,	// Offset into the color map table
+			0, 0,	// Number of color map entries
+			0,		// Number of a color map entry bits per pixel
+			0, 0,	// Horizontal image position
+			0, 0,	// Vertical image position
+			( unsigned char )( width & 0xff ),
+			( unsigned char )( width >> 8 ),
+			( unsigned char )( height & 0xff ),
+			( unsigned char )( height >> 8 ),
+			( unsigned char )( depth * 8 ),	// Pixel depth(bits per pixel)
+			alpha	// Image descriptor
+		};
+
+		// ヘッダを書き込む
+		file.write( reinterpret_cast< const char* >( header ), sizeof header );
+
+		// ヘッダの書き込みチェック
+		if ( file.bad() )
+		{
+			// ヘッダの書き込みに失敗した
+			std::cerr << "Error: Can't write file header: " << name << std::endl;
+			file.close();
+			return false;
+		}
+
+		// データを書き込む
+		size_t size( width * height * depth );
+		if ( type == 2 )
+		{
+			// フルカラー
+			std::vector<char> temp( size );
+			for ( size_t i = 0; i < size; i += depth )
+			{
+				temp[ i + 2 ] = static_cast< const char* >( buffer )[ i + 0 ];
+				temp[ i + 1 ] = static_cast< const char* >( buffer )[ i + 1 ];
+				temp[ i + 0 ] = static_cast< const char* >( buffer )[ i + 2 ];
+				if ( depth == 4 )temp[ i + 3 ] = static_cast< const char* >( buffer )[ i + 3 ];
+			}
+			file.write( &temp[ 0 ], size );
+		}
+		else if ( type == 3 )
+		{
+			// グレースケール
+			file.write( static_cast< const char* >( buffer ), size );
+		}
+
+		// フッタを書き込む
+		static const char footer[] = "\0\0\0\0\0\0\0\0TRUEVISION-XFILE.";
+		file.write( footer, sizeof footer );
+
+		// データの書き込みチェック
+		if ( file.bad() )
+		{
+			// データの書き込みに失敗した
+			std::cerr << "Error: Can't write image data: " << name << std::endl;
+			file.close();
+			return false;
+		}
+
+		// ファイルを閉じる
+		file.close();
+
+		return true;
+	}
+
+	// 放射照度マップの作成
+	bool createMap( const char *name, GLsizei diameter, GLuint imap, GLsizei isize, 
+		GLuint emap, GLsizei esize, const GLfloat *amb, GLfloat shi )
+	{
+		// 作成したテクスチャの数
+		static int count( 0 );
+
+		// 読み込んだ画像の幅と高さ、フォーマット
+		GLsizei width, height;
+		GLenum format;
+
+		// 天空画像のファイルの読み込み
+		GLubyte const *const texture( loadTga( name, &width, &height, &format ) );
+
+		// 画像が読み込めなければ終了
+		if ( !texture )return false;
+
+		// この画像の中心位置
+		const GLsizei centerX( width / 2 ), centerY( height / 2 );
+
+		// diameter, width, heightの最小値の1/2をraduisにする
+		const GLsizei radius( std::min( diameter, std::min( width, height ) ) / 2 );
+
+		// 平滑化した放射照度マップの一時保存先
+		std::vector<GLubyte> itemp( isize * isize * 3 );
+
+		// 放射照度マップ用に平滑する
+		//smooth( texture, width, height, format, centerX, centerY, radius, radius, &itemp[ 0 ], isize, amb, 1.0f );
+
+		// 作成したテクスチャを保存する
+		std::stringstream imapname;
+		imapname << "irr" << count << ".tga";
+		saveTga( isize, isize, 3, &itemp[ 0 ], imapname.str().c_str() );
+
+		// 平滑した環境マップの一時保存先
+		std::vector<GLubyte> etemp( esize * esize * 3 );
+
+		// 環境マップ用に平滑する
+		//smooth( texture, width, height, format, centerX, centerY, radius, radius, &etemp[ 0 ], esize, amb, shi );
+
+		// 環境マップのテクスチャを作成する
+		std::stringstream emapname;
+		emapname << "env" << count << ".tga";
+		saveTga( esize, esize, 3, &etemp[ 0 ], emapname.str().c_str() );
+
+		// 読み込んだデータはもう使わないのでメモリを開放する
+		delete[] texture;
+
+		// 作成したテクスチャの数を数える
+		++count;
+
+		return true;
+	}
 }

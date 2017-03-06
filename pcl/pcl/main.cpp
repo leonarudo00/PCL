@@ -25,6 +25,22 @@
 // objデータを取得
 const char filename[] = "bunny.obj";
 
+//
+const char skymap[] = "skymap0.tga";
+
+// 大域環境光強度
+const GLfloat ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+
+// 輝き係数
+const GLfloat shininess( 60.0f );
+
+// 天空画像中の天空領域の直系の最大値
+const GLsizei skysize( 1024 );
+
+// 作成するテクスチャのサイズ
+const GLsizei imapsize( 256 );
+const GLsizei emapsize( 256 );
+
 // 矩形の頂点の位置
 const Object::Vertex rectangleVertex[]=
 {
@@ -54,6 +70,13 @@ void main()
 	glfwWindowHint( GLFW_CONTEXT_VERSION_MINOR, 2 );
 	glfwWindowHint( GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE );
 	glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
+
+	// テクスチャ
+	GLuint imap[ 1 ], emap[ 1 ];
+
+	// テクスチャの読み込み
+	MyOpenGL::createMap( skymap, skysize, imap[0], imapsize, emap[0], emapsize, ambient, shininess );
+
 
 	// ウィンドウを作成する
 	Window window;
