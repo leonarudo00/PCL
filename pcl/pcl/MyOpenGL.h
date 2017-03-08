@@ -152,7 +152,9 @@ namespace MyOpenGL{
 		return vstat && fstat ? createProgram( vsrc.data(), fsrc.data() ) : 0;
 	}
 
+	//
 	// 平行投影変換行列を求める
+	//
 	void orthogonalMatrix( float left, float right, float bottom, float top, float Near, float Far, GLfloat *matrix )
 	{
 		float dx = right - left;
@@ -170,7 +172,9 @@ namespace MyOpenGL{
 
 	}
 
+	//
 	// 透視投影変換行列を求める
+	//
 	void perspectiveMatrix( float left, float right, float bottom, float top, float Near, float Far, GLfloat *matrix )
 	{
 		float dx = right - left;
@@ -188,7 +192,9 @@ namespace MyOpenGL{
 
 	}
 
+	//
 	// 視野変換行列を求める
+	//
 	void lookAt( float ex, float ey, float ez, float tx, float ty, float tz, float ux, float uy, float uz, GLfloat *matrix )
 	{
 		float l;
@@ -696,7 +702,151 @@ namespace MyOpenGL{
 		return true;
 	}
 
+	//
+	// 平滑化
+	//
+	void smooth( const GLubyte *src, GLsizei width, GLsizei height, GLenum format, GLsizei xc,
+		GLsizei yc, GLsizei xr, GLsizei yr, GLubyte *dst, GLsizei size, const GLfloat *amb, GLfloat shi )
+	{
+		// チャンネル数
+		const int channels( format = GL_BGRA ? 4 : 3 );
+
+		// 大域環境光強度
+		const GLfloat ramb( amb[ 0 ] * 255.0f ), gamb( amb[ 1 ] * 255.0f ), bamb( amb[ 2 ] * 255.0f );
+
+		// 放射照度マップの各画素について
+		for ( int yd = 0; yd < size; ++yd )
+		{
+			std::cout << "Processing line: " << yd
+				<< "(" << std::fixed << std::setprecision( 1 ) << float( yd )*100.0f / float( size ) << "%)"
+				<< std::endl;
+
+			for ( int xd = 0; xd < size; ++xd )
+			{
+				// この画素の放射照度マップの配列dstのインデックス
+				const int id( ( yd * size + xd ) * 3 );
+
+				// この画素の放射照度マップ上の正規化された座標値（-0.5 <= u, v >= 0.5）
+				const float u( float( xd ) / float( size - 1 ) - 0.5f );
+				const float v( 0.5f - float( yd ) / float( size - 1 ) );
+				const float m( u * u + v * v );
+				const float w( 0.25f - m );
+				const float a( sqrt( m + w * w ) );
+
+				// 放射照度マップを放物面マップとして参照するときのこの画素の方向ベクトル
+				const float qx( u / a );
+				const float qy( w / a );
+				const float qz( v / a );
+
+				// この画素が放射照度マップの単位円外にあるとき
+				if ( qy <= 0.0f )
+				{
+					// 大域環境光を設定する
+					dst[ id + 0 ] = GLubyte( ramb );
+					dst[ id + 1 ] = GLubyte( gamb );
+					dst[ id + 2 ] = GLubyte( bamb );
+					continue;
+				}
+
+				// このベクトルの方向を天頂とする半天球からの放射照度の総和
+				float rsum( 0.0f ), gsum( 0.0f ), bsum( 0.0f );
+
+				// 半天球の重みづけ立体角の総和
+				float wtotal( 0.0f );
+
+				// srcの(xc, yc)を中心とし[-xr, xr] x [-yr, yr]の範囲の各画素について
+				for ( int ys = yc - yr; ys <= yc + yr; ++ys )
+				{
+					for ( int xs = xc - xr; xs <= xc + xr; ++xs )
+					{
+						// この画素の天空画像上の正規化された座標値(-1 <= s, t <= 1)
+						const float s( float( xs - xc ) / float( xr ) );
+						const float t( float( yc - ys ) / float( xr ) );
+
+						// この画素の天空画像の中心からの距離
+						const float r( sqrt( s * s + t * t ) );
+
+						// この画像の天空画像の中心からの距離を天頂角とする方向ベクトルpのy成分
+						const float py( cos( r * float( M_PI ) * 0.5f ) );
+
+						// この画素の天空画像の中心からの距離に対する方向ベクトルqのxz成分の長さの比
+						const float l( r > 0.0f ? sqrt( 1.0f - py * py ) / r : 0.0f );
+
+						// この画素の天空に向かう方向ベクトルqのx成分とx成分
+						const float px( s * l );
+						const float pz( t * l );
+
+						// pとqの内積
+						const float pq( px * qx + py * qy + pz * qz );
+
+						// この画素の方向pが放射照度マップの方向ベクトルqの反対側を向いているとき
+						if ( pq <= 0.0f )continue;
+
+						// この画素の方向pの天頂角
+						const float theta( acos( pq ) );
+
+						// この画素の方向pの立体角(√(1 - cosθ^2) / θ = sinθ / θ = sincθ)
+						const float sr( theta > 0.0f ? sqrt( 1.0f - pq * pq ) / theta : 1.0f );
+
+						// この画素の方向pの立体角にshininessの重みをつける
+						const float dw( pow( pq, shi ) * sr );
+
+						// 重みづけ立体角を積算する
+						wtotal += dw;
+
+						// この画素が天空画像の単位円外にあるとき
+						if ( r >= 1.0f )
+						{
+							// 大域環境光を加算する
+							rsum += ramb * dw;
+							gsum += gamb * dw;
+							bsum += bamb * dw;
+							continue;
+						}
+
+						// この画素の天空画像の配列srcのインデックス
+						const int is( ( ys * width + xs ) * channels );
+
+						// srcの画素値をdstに加算する
+						rsum += float( src[ is + 2 ] ) * dw;
+						gsum += float( src[ is + 1 ] ) * dw;
+						bsum += float( src[ is + 0 ] ) * dw;
+					}
+				}
+
+				// 重み付け立体角の総和（天空の面積）で割る
+				dst[ id + 0 ] = GLubyte( round( rsum / wtotal ) );
+				dst[ id + 1 ] = GLubyte( round( gsum / wtotal ) );
+				dst[ id + 2 ] = GLubyte( round( bsum / wtotal ) );
+			}
+		}
+	}
+
+	//
+	// テクスチャの作成
+	//
+	void createTexture( const GLubyte *buffer, GLsizei width, GLsizei height, GLenum format,
+		const GLfloat *amb, GLuint tex )
+	{
+		// テクスチャオブジェクトにテクスチャを割り当てる
+		glBindTexture( GL_TEXTURE_2D, tex );
+		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, buffer );
+
+		// テクスチャは線形補間する
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+
+		// 境界線を拡張する
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER );
+
+		// テクスチャの境界色に大域環境光を設定する
+		glTexParameterfv( GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, amb );
+	}
+
+	//
 	// 放射照度マップの作成
+	//
 	bool createMap( const char *name, GLsizei diameter, GLuint imap, GLsizei isize, 
 		GLuint emap, GLsizei esize, const GLfloat *amb, GLfloat shi )
 	{
@@ -723,7 +873,10 @@ namespace MyOpenGL{
 		std::vector<GLubyte> itemp( isize * isize * 3 );
 
 		// 放射照度マップ用に平滑する
-		//smooth( texture, width, height, format, centerX, centerY, radius, radius, &itemp[ 0 ], isize, amb, 1.0f );
+		smooth( texture, width, height, format, centerX, centerY, radius, radius, &itemp[ 0 ], isize, amb, 1.0f );
+
+		// 放射照度マップのテクスチャを作成する
+		createTexture( &itemp[ 0 ], isize, isize, GL_RGB, amb, imap );
 
 		// 作成したテクスチャを保存する
 		std::stringstream imapname;
@@ -734,7 +887,10 @@ namespace MyOpenGL{
 		std::vector<GLubyte> etemp( esize * esize * 3 );
 
 		// 環境マップ用に平滑する
-		//smooth( texture, width, height, format, centerX, centerY, radius, radius, &etemp[ 0 ], esize, amb, shi );
+		smooth( texture, width, height, format, centerX, centerY, radius, radius, &etemp[ 0 ], esize, amb, shi );
+
+		// 環境マップのテクスチャを作成する
+		createTexture( &etemp[ 0 ], esize, esize, GL_RGB, amb, emap );
 
 		// 環境マップのテクスチャを作成する
 		std::stringstream emapname;
