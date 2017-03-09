@@ -537,6 +537,7 @@ namespace MyOpenGL{
 				break;
 			case 3:
 				*format = GL_BGR;
+				break;
 			case 4:
 				*format = GL_BGRA;
 				break;
@@ -709,7 +710,7 @@ namespace MyOpenGL{
 		GLsizei yc, GLsizei xr, GLsizei yr, GLubyte *dst, GLsizei size, const GLfloat *amb, GLfloat shi )
 	{
 		// チャンネル数
-		const int channels( format = GL_BGRA ? 4 : 3 );
+		const int channels( format == GL_BGRA ? 4 : 3 );
 
 		// 大域環境光強度
 		const GLfloat ramb( amb[ 0 ] * 255.0f ), gamb( amb[ 1 ] * 255.0f ), bamb( amb[ 2 ] * 255.0f );
@@ -761,7 +762,7 @@ namespace MyOpenGL{
 					{
 						// この画素の天空画像上の正規化された座標値(-1 <= s, t <= 1)
 						const float s( float( xs - xc ) / float( xr ) );
-						const float t( float( yc - ys ) / float( xr ) );
+						const float t( float( yc - ys ) / float( yr ) );
 
 						// この画素の天空画像の中心からの距離
 						const float r( sqrt( s * s + t * t ) );
