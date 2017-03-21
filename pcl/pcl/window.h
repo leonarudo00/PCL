@@ -34,6 +34,9 @@ class Window
 		scale[ 1 ] = s * 2.0f / static_cast<GLfloat>( size[ 1 ] );
 	}
 
+	// 明るさ
+	int blightness;
+
 public:
 	// コンストラクタ
 	Window( int width = 640, int height = 480, const char *title = "Hello!" )
@@ -188,4 +191,12 @@ public:
 			instance->keyStatus = action;
 		}
 	}
+
+	// 明るさを取り出す
+	void getBrightness( GLfloat *brightness )
+	{
+		brightness[ 0 ] = brightness[ 1 ] = brightness[ 2 ] = this->blightness * 0.1f;
+		brightness[ 3 ] = 1.0f;
+	}
+
 };

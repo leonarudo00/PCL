@@ -139,13 +139,11 @@ public:
 
 		// 頂点バッファオブジェクトを作成する
 		glGenBuffers( 1, &positionBuffer );
-		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
 		glGenBuffers( 1, &normalBuffer );
-		glBindBuffer( GL_ARRAY_BUFFER, normalBuffer );
 		glGenBuffers( 1, &indexBuffer );
-		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
 
 		// 頂点位置バッファオブジェクトにメモリ領域を確保する
+		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
 		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices, position, GL_DYNAMIC_DRAW );
 		// attribute変数に対応づける
 		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
@@ -156,6 +154,7 @@ public:
 		glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
 		// 頂点法線位置バッファオブジェクトにメモリ領域を確保する
+		glBindBuffer( GL_ARRAY_BUFFER, normalBuffer );
 		glBufferData( GL_ARRAY_BUFFER, sizeof( Normal ) * vertices, normal, GL_DYNAMIC_DRAW );
 		// attribute変数に対応づける
 		glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 );
@@ -166,12 +165,13 @@ public:
 		glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
 		// 頂点インデックスバッファオブジェクトにメモリ領域を確保する
+		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
 		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( Face ) * indexes, face, GL_STATIC_DRAW );
 
 		// 頂点バッファオブジェクトの結合を解除する
 		glBindVertexArray( 0 );
 
-		drawNormal( position, normal );
+		//drawNormal( position, normal );
 	}
 
 	// 描画
@@ -180,7 +180,6 @@ public:
 		//updatePosition();
 
 		glBindVertexArray( vao );
-		//glDrawArrays( GL_POINTS, 0, vertices );
 		glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
 
 		//glBindVertexArray( vao2 );

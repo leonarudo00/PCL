@@ -906,4 +906,131 @@ namespace MyOpenGL{
 
 		return true;
 	}
+
+	//
+	// 放射照度マップの読み込み
+	//
+	bool loadMap( const char *iname, const char *ename, GLuint imap, GLuint emap )
+	{
+		// 終了ステータス
+		bool status( true );
+
+		// 読み込んだ画像の幅と高さ、フォーマット
+		GLsizei width, height;
+		GLenum format;
+
+		// 放射照度マップの読み込み
+		GLubyte const *const itexture( loadTga( iname, &width, &height, &format ) );
+
+		// 画像が読み込めなければ終了
+		if ( !itexture )status = false;
+
+		// 読み込んだ画像の左上隅の画素の色を大域環境光とする
+		const GLfloat iamb[] = { itexture[ 2 ] / 255.0f, itexture[ 1 ] / 255.0f, itexture[ 0 ] / 255.0f };
+
+		// テクスチャの作成
+		createTexture( itexture, width, height, format, iamb, imap );
+
+		// 読み込んだデータはもう使わないのでメモリを解放する
+		delete[] itexture;
+
+		// 放射照度マップの読み込み
+		GLubyte const *const etexture( loadTga( ename, &width, &height, &format ) );
+
+		// 画像が読み込めなければ終了
+		if ( !etexture )status = false;
+
+		// 読み込んだ画像の左上隅の画素の色を大域環境光とする
+		const GLfloat eamb[] = { etexture[ 2 ] / 255.0f, etexture[ 1 ] / 255.0f, etexture[ 0 ] / 255.0f };
+
+		// テクスチャの作成
+		createTexture( etexture, width, height, format, eamb, emap );
+
+		// 読み込んだデータはもう使わないのでメモリを開放する
+		delete[] etexture;
+
+		// 全て読み込み成功
+		return status;
+	}
+
+	//
+	// 放物面マッピング用のテクスチャ変換行列
+	//
+	const GLfloat paraboloid[] =
+	{
+		-1.0f, 0.0f, 0.0f, 0.0f,
+		 1.0f, 1.0f, 0.0f, 2.0f,
+		 0.0f,-1.0f, 0.0f, 0.0f,
+		 1.0f, 1.0f, 0.0f, 2.0f,
+	};
+
+	//
+	// 放射照度マップに使うテクスチャユニットの設定
+	//
+	void irradiance()
+	{
+		// テクスチャ座標に法線ベクトルを使う
+		glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_NORMAL_MAP );
+		glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_NORMAL_MAP );
+		glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, GL_NORMAL_MAP );
+		glEnable( GL_TEXTURE_GEN_S );
+		glEnable( GL_TEXTURE_GEN_T );
+		glEnable( GL_TEXTURE_GEN_R );
+
+		// 放射照度マップの値をかさ上げする Ce = Cb + Ct
+		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE );
+		glTexEnvi( GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_ADD );			// 加算
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_CONSTANT );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR );		// Cb:GL_TEXTURE_ENV_COLORのRGB値
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_TEXTURE );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR );		// Ct:放射照度マップの値
+
+		// テクスチャ座標の変換行列に放物面マッピング用の変換行列を設定する
+		glMatrixMode( GL_TEXTURE );
+		glLoadMatrixf( paraboloid );
+	}
+
+	//
+	// 拡散反射光強度の算出に使うテクスチャユニットの設定
+	//
+	void diffuse()
+	{
+		// 物体の色（頂点色の補間値）に前レイヤで求めた入射光強度をかける Cd = Cv * Ce
+		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE );
+		glTexEnvi( GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE );		// 乗算
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PRIMARY_COLOR );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR );		// Cv:頂点色の補間値
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PREVIOUS );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR );		// Ce:かさ上げした放射照度（前レイヤ）
+	}
+
+	//
+	// 環境マップの加算に使うテクスチャユニットの設定
+	//
+	void reflection()
+	{
+		// テクスチャ座標に反射ベクトルを使う
+		glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
+		glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
+		glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, GL_REFLECTION_MAP );
+		glEnable( GL_TEXTURE_GEN_S );
+		glEnable( GL_TEXTURE_GEN_T );
+		glEnable( GL_TEXTURE_GEN_R );
+
+		// 環境マップの値と前レイヤでもとめた拡散反射光強度を鏡面反射係数で比例配分する C = Ct * Cs + Cd * ( 1 - Cs )
+		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE );
+		glTexEnvi( GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_INTERPOLATE );	// 補間
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR );		// Ct:環境マップの値
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PREVIOUS );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR );		// Cd:拡散反射光強度（前レイヤ）
+		glTexEnvi( GL_TEXTURE_ENV, GL_SOURCE2_RGB, GL_CONSTANT );
+		glTexEnvi( GL_TEXTURE_ENV, GL_OPERAND2_RGB, GL_SRC_COLOR );		// Cs:鏡面反射係数
+
+		// テクスチャ座標の変換行列に放物面マッピング用の変換行列を設定する
+		glMatrixMode( GL_TEXTURE );
+		glLoadMatrixf( paraboloid );
+	}
+
+
 }

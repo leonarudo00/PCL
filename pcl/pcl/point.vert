@@ -6,9 +6,12 @@ uniform		mat4	projectionMatrix;	// 透視投影変換行列
 in			vec4	position;			// ローカル座標系での頂点位置
 in			vec4	normal;				// ローカル座標系での頂点法線
 out			vec3	vc;					// 頂点色
+out			vec4	n;
 
 void main()
 {
+	n = normalize(normal);
+
 	float z = position.z * 6.0 + 2.0;
 	vc = clamp(vec3(z - 2.0, 2.0 - abs(z - 2.0), 2.0 - z), 0.0, 1.0);
 
