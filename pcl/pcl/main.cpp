@@ -52,7 +52,7 @@ const GLfloat ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 // 輝き係数
 const GLfloat shininess( 60.0f );
 
-// 天空画像中の天空領域の直系の最大値
+// 天空画像中の天空領域の直径の最大値
 const GLsizei skysize( 1024 );
 
 // 作成するテクスチャのサイズ
@@ -138,7 +138,7 @@ void main()
 	MyOpenGL::cameraMatrix( 30.f, 1.0f, 7.0f, 11.0f, temp1 );
 
 	// 視野変換行列を求める
-	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
+	MyOpenGL::lookAt( 4.0f, 5.0f, -6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 視野変換行列と投影変換行列の積を求める
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 
@@ -196,7 +196,6 @@ void main()
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();
 	}
-
 
 	try{
 		// objファイルを読み込む
