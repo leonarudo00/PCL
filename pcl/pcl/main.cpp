@@ -18,11 +18,11 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "window.h"
-#include "Shape.h"
 #include "MyOpenGL.h"
 #include "Mesh.h"
+#include "CamCv.h"
 
-// 事前計算したマップを使用するなら 1
+// 事前計算した放射照度マップを使用するなら 1
 #define USEMAP 1
 
 // objデータを取得
@@ -58,15 +58,6 @@ const GLsizei skysize( 1024 );
 // 作成するテクスチャのサイズ
 const GLsizei imapsize( 256 );
 const GLsizei emapsize( 256 );
-
-// 矩形の頂点の位置
-const Object::Vertex rectangleVertex[]=
-{
-	{ -0.5f, -0.5f },
-	{  0.5f, -0.5f },
-	{  0.5f,  0.5f },
-	{ -0.5f,  0.5 }
-};
 
 GLfloat projectionMatrix[ 16 ];		// 投影変換行列
 GLfloat temp0[ 16 ], temp1[ 16 ];	// 一時的な変換行列
@@ -138,7 +129,7 @@ void main()
 	MyOpenGL::cameraMatrix( 30.f, 1.0f, 7.0f, 11.0f, temp1 );
 
 	// 視野変換行列を求める
-	MyOpenGL::lookAt( 4.0f, 5.0f, -6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
+	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 視野変換行列と投影変換行列の積を求める
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 
@@ -150,8 +141,6 @@ void main()
 	const GLint	imapLoc( glGetUniformLocation( program, "imap" ) );
 
 	// 図形データを作成する
-	std::unique_ptr<const Shape> shape( new Shape( 2, 4, rectangleVertex ) );
-	//Mesh mesh( 16, 12 );
 	Mesh mesh( filename, false );
 
 	// 隠面消去処理を有効にする
@@ -187,12 +176,11 @@ void main()
 		glUniform1f( scaleLoc, window.getScale() );
 		glUniform2fv( locationLoc, 1, window.getLocation() );
 		glUniformMatrix4fv( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
-		glUniform1i( imapLoc, 2 );
+		glUniform1i( imapLoc, 1 );
 
 		// 図形を描画する
-		//shape->draw();
 		mesh.draw();
-
+		
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();
 	}

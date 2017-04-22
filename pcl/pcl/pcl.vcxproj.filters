@@ -32,12 +32,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="object.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="shape.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="window.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>

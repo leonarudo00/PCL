@@ -35,7 +35,7 @@ class CamCv :public Camera
 		{
 			// キャプチャした画像のサイズを取得する
 			width = static_cast< GLsizei >( camera.get( CV_CAP_PROP_FRAME_WIDTH ) );
-			height = static_cast< GLsizei >( camera.get( CV_CAP_PROP_FRAME_HEIGHT );
+			height = static_cast< GLsizei >( camera.get( CV_CAP_PROP_FRAME_HEIGHT ) );
 
 			// macOSだと設定できても0が返ってくるので対処
 			//if ( width == 0 )width = initial_width;
