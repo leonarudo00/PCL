@@ -7,8 +7,8 @@
 // 自作ヘッダ
 #include "MyOpenGL.h"
 
-#include <pcl/visualization/cloud_viewer.h>
-#include <pcl/features/integral_image_normal.h>
+//#include <pcl/visualization/cloud_viewer.h>
+//#include <pcl/features/integral_image_normal.h>
 
 class Mesh
 {
@@ -127,11 +127,11 @@ public:
 		MyOpenGL::loadOBJ( name, vertices, position, normal, indexes, face, normalize );
 
 		// PCLでOBJファイルを読み込む
-		pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh() );
+		/*pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh() );
 		pcl::PointCloud < pcl::PointXYZ >::Ptr obj_pcd( new pcl::PointCloud<pcl::PointXYZ>() );
 		if ( pcl::io::loadPolygonFileOBJ( name, *mesh ) != -1 ){
 			pcl::fromPCLPointCloud2( mesh->cloud, *obj_pcd );
-		}
+		}*/
 
 		// 頂点配列オブジェクトを作成する
 		glGenVertexArrays( 1, &vao );

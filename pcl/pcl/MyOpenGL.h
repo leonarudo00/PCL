@@ -1,7 +1,11 @@
 #pragma once
 #define pi	3.14159265f	// 円周率
 #include <iostream>
+#include <sstream>
+#include <algorithm>
+#include <iomanip>
 #include <vector>
+#include <string>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -768,7 +772,7 @@ namespace MyOpenGL{
 						const float r( sqrt( s * s + t * t ) );
 
 						// この画像の天空画像の中心からの距離を天頂角とする方向ベクトルpのy成分
-						const float py( cos( r * float( M_PI ) * 0.5f ) );
+						const float py( cos( r * float( pi ) * 0.5f ) );
 
 						// この画素の天空画像の中心からの距離に対する方向ベクトルqのxz成分の長さの比
 						const float l( r > 0.0f ? sqrt( 1.0f - py * py ) / r : 0.0f );
@@ -843,6 +847,40 @@ namespace MyOpenGL{
 
 		// テクスチャの境界色に大域環境光を設定する
 		glTexParameterfv( GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, amb );
+	}
+	//
+	// テクスチャの作成（ミップマップ）
+	//
+	GLuint createTexture( GLenum internalFormat, GLsizei width, GLsizei height, GLint levels )
+	{
+		// テクスチャの境界色
+		const GLfloat border[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+		// テクスチャオブジェクトを作成する
+		GLuint texture;
+		glGenTextures( 1, &texture );
+
+		// テクスチャオブジェクトにテクスチャを割り当てる
+		glBindTexture( GL_TEXTURE_2D, texture );
+		for ( GLint level = 0; level <= levels; ++level )
+		{
+			glTexImage2D( GL_TEXTURE_2D, level, internalFormat, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, NULL );
+			width = std::max( 1, ( width / 2 ) );
+			height = std::max( 1, ( height / 2 ) );
+		}
+
+		// テクスチャは線形補間する
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+
+		// 境界線を拡張する
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER );
+
+		// 境界色を設定する
+		glTexParameterfv( GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border );
+
+		return texture;
 	}
 
 	//

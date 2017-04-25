@@ -8,9 +8,9 @@
 
 #include <iostream>
 #include <Windows.h>
-#include <pcl\visualization\cloud_viewer.h>
-#include <pcl\io\vtk_lib_io.h>
-
+//#include <pcl\visualization\cloud_viewer.h>
+//#include <pcl\point_types.h> 
+//#include <pcl\io\vtk_lib_io.h>
 #include <cstdlib>
 #include <vector>
 #include <memory>
@@ -20,13 +20,16 @@
 #include "window.h"
 #include "MyOpenGL.h"
 #include "Mesh.h"
-#include "CamCv.h"
+#include "opencv2\opencv.hpp"
+
+// キャプチャに用いるカメラのデバイス番号
+const int captureDevice( 1 );
 
 // 事前計算した放射照度マップを使用するなら 1
 #define USEMAP 1
 
 // objデータを取得
-const char filename[] = "bunny.obj";
+const char filename[] = "ball.obj";
 
 // 放射照度マップ
 const char *const irrmaps[]=
@@ -62,10 +65,37 @@ const GLsizei emapsize( 256 );
 GLfloat projectionMatrix[ 16 ];		// 投影変換行列
 GLfloat temp0[ 16 ], temp1[ 16 ];	// 一時的な変換行列
 
+// 法線方向のミップマップのレベル
+const GLint diffuseLod( 5 );
+
+// キャプチャした画像
+GLubyte *buffer;
+
+// 点群の型を定義しておく
+//typedef pcl::PointXYZ PointType;
+
+// 法線を推定する
+/*void estimateNormal( pcl::PointCloud<PointType>::Ptr cloud, pcl::PointCloud<pcl::Normal>::Ptr &cloud_normals )
+{
+	// 法線推定クラス
+	pcl::IntegralImageNormalEstimation<PointType, pcl::Normal>  ne;
+
+	ne.setNormalEstimationMethod( ne.AVERAGE_DEPTH_CHANGE );
+	ne.setMaxDepthChangeFactor( 0.01 );
+	ne.setNormalSmoothingSize( 5.0 );
+	ne.setInputCloud( cloud );
+	ne.compute( *cloud_normals );
+}*/
+
 void main()
 {
+	// カメラの使用を開始する
+	cv::VideoCapture cap( captureDevice );
+	if ( !cap.isOpened() ) return;
+
 	// GLFW を初期化する
-	if ( glfwInit() == GL_FALSE ){
+	if ( glfwInit() == GL_FALSE )
+	{
 		// 初期化に失敗した
 		std::cerr << "Can't initialize GLFW" << std::endl;
 		return;
@@ -99,7 +129,8 @@ void main()
 	glGenTextures( mapcount, emap );
 
 	// テクスチャの読み込み
-	for ( size_t i = 0; i < mapcount; ++i ){
+	for ( size_t i = 0; i < mapcount; ++i )
+	{
 #if USEMAP
 		MyOpenGL::loadMap( irrmaps[ i ], envmaps[ i ], imap[ i ], emap[ i ] );
 #else
@@ -133,12 +164,16 @@ void main()
 	// 視野変換行列と投影変換行列の積を求める
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 
+	// 環境のテクスチャを準備する
+	const auto image( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
+
 	// uniform変数の場所を取得する
 	const GLint sizeLoc( glGetUniformLocation( program, "size" ) );
 	const GLint scaleLoc( glGetUniformLocation( program, "scale" ) );
 	const GLint locationLoc( glGetUniformLocation( program, "location" ) );
 	const GLint projectionMatrixLoc( glGetUniformLocation( program, "projectionMatrix" ) );
 	const GLint	imapLoc( glGetUniformLocation( program, "imap" ) );
+	const GLint imageLoc( glGetUniformLocation( program, "image" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename, false );
@@ -147,7 +182,13 @@ void main()
 	glEnable( GL_DEPTH_TEST );
 
 	// ウィンドウが開いている間繰り返す
-	while ( window.shouldClose() == GL_FALSE ){
+	while ( window.shouldClose() == GL_FALSE )
+	{
+		// キャプチャした画像を表示する
+		cv::Mat frame;
+		cap >> frame;
+		cv::imshow( "image", frame );
+
 		// ウィンドウを消去する
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -177,21 +218,37 @@ void main()
 		glUniform2fv( locationLoc, 1, window.getLocation() );
 		glUniformMatrix4fv( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
 		glUniform1i( imapLoc, 1 );
+		glUniform1i( imageLoc, 2 );
+		glActiveTexture( GL_TEXTURE2 );
+		glBindTexture( GL_TEXTURE_2D, image );
+
+		// 環境のテクスチャに画像を転送する
+		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), GL_RGB, GL_UNSIGNED_BYTE, frame.data );
+		glGenerateMipmap( GL_TEXTURE_2D );
 
 		// 図形を描画する
 		mesh.draw();
 		
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();
+
+		// ESCAPEキーが押されたら終了
+		if ( GetKeyState( VK_ESCAPE ) < 0 ) break;
 	}
 
-	try{
+	/*
+	try
+	{
 		// objファイルを読み込む
 		pcl::PolygonMesh::Ptr mesh( new pcl::PolygonMesh() );
 		pcl::PointCloud<pcl::PointXYZ>::Ptr obj_pcd( new pcl::PointCloud<pcl::PointXYZ>() );
-		if ( pcl::io::loadPolygonFileOBJ( filename, *mesh ) != -1 ){
+		if ( pcl::io::loadPolygonFileOBJ( filename, *mesh ) != -1 )
+		{
 			pcl::fromPCLPointCloud2( mesh->cloud, *obj_pcd );
 		}
+
+		// 法線
+		pcl::PointCloud<pcl::Normal>::Ptr cloud_normals( new pcl::PointCloud < pcl::Normal > );
 
 		// ウィンドウの作成
 		pcl::visualization::PCLVisualizer viewer( "Point Cloud Viewer" );
@@ -199,18 +256,26 @@ void main()
 		// PointCloudを追加
 		viewer.addPointCloud( obj_pcd );
 
+		// 法線を推定する
+		estimateNormal( obj_pcd, cloud_normals );
+		// 法線を更新する
+		viewer.addPointCloudNormals<pcl::PointXYZ, pcl::Normal>( obj_pcd, cloud_normals, 100, 0.05, "normals" );
+
 		// ウィンドウが閉じていない間続く
-		while ( !viewer.wasStopped() ) {
+		while ( !viewer.wasStopped() )
+		{
 			// スクリーンを更新
 			viewer.spinOnce();
 
 			// ESCAPEキーが押されたら終了
-			if ( GetKeyState( VK_ESCAPE ) < 0 ){
+			if ( GetKeyState( VK_ESCAPE ) < 0 )
+			{
 				break;
 			}
 		}
 	}
-	catch ( std::exception& ex ){
+	catch ( std::exception& ex )
+	{
 		std::cout << ex.what() << std::endl;
-	}
+	}*/
 }

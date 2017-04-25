@@ -132,28 +132,4 @@ public:
 		// ファイル/ネットワークが使えない
 		return false;
 	}
-
-	// 露出を上げる
-	virtual void increaseExposure()
-	{
-		if ( camera.isOpened() ) camera.set( CV_CAP_PROP_EXPOSURE, ++exposure * 0.1 );
-	}
-
-	// 露出を下げる
-	virtual void decreaseExposure()
-	{
-		if ( camera.isOpened() ) camera.set( CV_CAP_PROP_EXPOSURE, -exposure * 0.1 );
-	}
-
-	// 利得を上げる
-	virtual void increaseGain()
-	{
-		if ( camera.isOpened() )camera.set( CV_CAP_PROP_GAIN, ++gain );
-	}
-
-	// 利得を下げる
-	virtual void decreaseGain()
-	{
-		if ( camera.isOpened() )camera.set( CV_CAP_PROP_GAIN, --gain );
-	}
 };
