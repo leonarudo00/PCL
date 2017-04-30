@@ -29,7 +29,7 @@ const int captureDevice( 1 );
 #define USEMAP 1
 
 // objデータを取得
-const char filename[] = "ball.obj";
+const char filename[] = "mario.obj";
 
 // 放射照度マップ
 const char *const irrmaps[]=
@@ -65,8 +65,14 @@ const GLsizei emapsize( 256 );
 GLfloat projectionMatrix[ 16 ];		// 投影変換行列
 GLfloat temp0[ 16 ], temp1[ 16 ];	// 一時的な変換行列
 
+// 法線方向のサンプル数
+const GLsizei diffuseSamples( 32 );
+
 // 法線方向のミップマップのレベル
 const GLint diffuseLod( 5 );
+
+// サンプル点の散布半径
+const GLfloat radius( 0.1f );
 
 // キャプチャした画像
 GLubyte *buffer;
@@ -174,6 +180,9 @@ void main()
 	const GLint projectionMatrixLoc( glGetUniformLocation( program, "projectionMatrix" ) );
 	const GLint	imapLoc( glGetUniformLocation( program, "imap" ) );
 	const GLint imageLoc( glGetUniformLocation( program, "image" ) );
+	const GLint diffuseSamplesLoc( glGetUniformLocation( program, "diffuseSamples" ) );
+	const GLint duffuseLodLoc( glGetUniformLocation( program, "diffuseLod" ) );
+	const GLint radiusLoc( glGetUniformLocation( program, "radius" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename, false );
@@ -217,6 +226,9 @@ void main()
 		glUniform1f( scaleLoc, window.getScale() );
 		glUniform2fv( locationLoc, 1, window.getLocation() );
 		glUniformMatrix4fv( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
+		glUniform1i( diffuseSamplesLoc, diffuseSamples );
+		glUniform1i( duffuseLodLoc, diffuseLod );
+		glUniform1f( radiusLoc, radius );
 		glUniform1i( imapLoc, 1 );
 		glUniform1i( imageLoc, 2 );
 		glActiveTexture( GL_TEXTURE2 );

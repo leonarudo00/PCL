@@ -7,9 +7,14 @@ in			vec4	position;			// ローカル座標系での頂点位置
 in			vec4	normal;				// ローカル座標系での頂点法線
 out			vec3	vc;					// 頂点色
 out			vec4	n;
+out			mat4	mp;
+out			vec3	p;
 
 void main()
 {
+	mp = projectionMatrix;
+	p = position.xyz;
+
 	n = normalize(normal);
 
 	float z = position.z * 6.0 + 2.0;

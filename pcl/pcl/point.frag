@@ -1,11 +1,20 @@
 #version 150 core
-out		vec4		fragment;	// 画素の色
-in		vec3		vc;			// 頂点色の補間値
-in		vec4		n;			// ローカル座標系での頂点法線
-uniform	sampler2D	imap;		// 放射照度マップ
-uniform sampler2D	image;		// 環境のテクスチャ
+#extension GL_ARB_explicit_attrib_location : enable
 
-vec2 size = textureSize(image,0);	// 環境テクスチャのサイズ
+out		vec4		fragment;		// 画素の色
+in		vec3		vc;				// 頂点色の補間値
+in		vec4		n;				// ローカル座標系での頂点法線
+in		mat4		mp;
+in		vec3		p;
+uniform	sampler2D	imap;			// 放射照度マップ
+uniform sampler2D	image;			// 環境のテクスチャ
+uniform int			diffuseSamples;	// 法線方向のサンプル点の数
+uniform int			diffuseLod;		// 法線方向のミップマップのレベル
+uniform float		radius;			// サンプル点の散布半径
+
+// 環境テクスチャのサイズ
+vec2 size = textureSize(image,0);	
+
 // 環境テクスチャの後方カメラ像のテクスチャ空間上の半径と中心
 vec2 radius_b = vec2( -0.25, 0.25 * size.x / size.y );	
 vec2 center_b = vec2( 0.25, radius_b.t );
@@ -15,7 +24,7 @@ vec2 radius_f = vec2( 0.25, radius_b.t );
 vec2 center_f = vec2( 0.75, center_b.t );
 
 // 環境マップのサンプリング
-vec4 sample( vec3 vector, int lod)
+vec4 sample( vec3 vector, int lod )
 {
 	//
 	// RICOH THETA S のライブストリーミング画像の場合
@@ -31,8 +40,6 @@ vec4 sample( vec3 vector, int lod)
 	vec2 orientation = normalize(vector.yx) * 0.885;
 
 	// 裏と表のテクスチャ座標を求める
-	//vec2 t_b = (1.0 - angle) * orientation * radius_b + center_b;
-	//vec2 t_f = (1.0 + angle) * orientation * radius_f + center_f;
 	vec2 t_b = (1.0 - angle) * orientation * radius_b + center_b;
 	vec2 t_f = (1.0 + angle) * orientation * radius_f + center_f;
 
@@ -44,6 +51,35 @@ vec4 sample( vec3 vector, int lod)
 	return mix(color_f, color_b, blend);
 }
 
+// ノイズ発生
+uint rand(in vec2 co)
+{
+	return uint(fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453) * 4294967293.0) + 1u;
+}
+
+// 乱数発生
+float xorshift(inout uint y)
+{
+	// shift して xor する
+	y = y ^ (y << 13);
+	y = y ^ (y >> 17);
+	y = y ^ (y << 5);
+
+	// [0, 1] に正規化して返す
+	return float(y) * 2.3283064e-10;
+}
+
+// サンプル点の生成
+vec4 sampler(inout uint seed, in float e)
+{
+	float z = pow(xorshift(seed), e);
+	float d = sqrt(1.0 - z * z);
+	float t = 6.2831853 * xorshift(seed);
+	vec3 s = normalize(vec3(vec2(cos(t), sin(t)) * d, z));
+	return vec4(s, radius * xorshift(seed));
+	//return vec4(s, radius * pow(xorshift(seed), 0.33333333));
+}
+
 void main()
 {
 	// テクスチャ座標をもとめる
@@ -52,7 +88,40 @@ void main()
 	// 放射照度マップのカラーを取得
 	vec4 irrColor = texture( imap, st );
 
-	vec4 color = sample(n.xyz, 0);
+	// サンプル点を法線方向に回転する変換行列
+	vec3 zn = vec3(-n.y, n.x, 0.0);
+	float len = length(zn);
+	vec3 t = mix(vec3(1.0, 0.0, 0.0), zn / len, step(0.001, len));
+	vec3 b = cross(n.xyz, t);
+	mat3 m = mat3(t, b, n);
 
-	fragment = vec4( color.zyx,1.0 );
+	// 乱数のタネ
+	uint seed = rand(gl_FragCoord.xy);
+	//uint seed = 2463534242u;
+
+	// 放射照度
+	vec4 idiff = vec4(0.0);
+
+	// 法線側の個々のサンプル点について
+	for (int i = 0; i < diffuseSamples; ++i)
+	{
+		// サンプル点を生成する
+		vec4 d = sampler(seed, 0.5);
+
+		// サンプル点を法線側に回転する
+		vec3 l = m * d.xyz;
+
+		// サンプル点の位置を p からの相対位置に平行移動した後その点のクリッピング座標系上の位置 q を求める
+		vec4 q = mp * vec4(p + l * d.w, 1.0);
+
+		// テクスチャ座標に変換する
+		q = q * 0.5 / q.w + 0.5;
+
+		// サンプル点方向の色を累積する
+		idiff += sample(l, diffuseLod);
+	}
+
+	vec4 color = sample(n.xyz, 5);
+
+	fragment = vec4( idiff / float(diffuseSamples) );
 }
