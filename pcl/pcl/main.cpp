@@ -38,8 +38,15 @@ const int captureDevice( 1 );
 // キャプチャするフレームのサイズ (0 ならデフォルト)
 const int captureWidth( 1280 ), captureHeight( 720 );
 
-// objデータを取得
-const char filename[] = "ball.obj";
+// objデータ名
+const char *const filename[] = 
+{
+	"ball.obj",
+	"bunny.obj",
+	"mario.obj"
+};
+// 使用するobjファイル番号
+const int objFile( 1 );
 
 //
 // 放射照度マップによる陰影付けで使う変数群
@@ -199,7 +206,7 @@ void main()
 	const GLint sizeLoc				( glGetUniformLocation( program, "size" ) );
 
 	// 図形データを作成する
-	Mesh mesh( filename, false );
+	Mesh mesh( filename[objFile], false );
 
 	// 隠面消去処理を有効にする
 	glEnable( GL_DEPTH_TEST );

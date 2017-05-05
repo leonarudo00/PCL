@@ -26,7 +26,7 @@ float aspect = ( size.x * 0.5 ) / size.y;
 const float invElevationAngle = 0.63661977;
 
 // 環境テクスチャの前方カメラ像のテクスチャ空間上の半径と中心
-// なんで半径なのにマイナスなの
+// 実空間の同一の点を指す radius_f と radius_b はx軸反転。なので radius_f.x = -0.25
 vec2 radius_f = vec2( -0.25, 0.5 * aspect );	
 vec2 center_f = vec2( 0.25, radius_f.t );
 
@@ -47,9 +47,9 @@ vec4 sample( vec3 vector, int lod )
 	// 素直にθmax/θでもとめるとゼロ割が発生する可能性があるのでやや遠まわし。
 	float angleRate = 1.0 - zenithAngle * invElevationAngle;
 
+	// 実際の画角230°から180°の領域に正規化された
 	// vectorの yx 上での方位ベクトル
-	// DualFisheye画像の重ならない領域に丸めている？
-	vec2 orientation = normalize(vector.yx) * 0.885;
+	vec2 orientation = normalize(vector.yx) * sqrt(180.0f / 230.0f);
 
 	// 裏と表のテクスチャ座標を求める
 	vec2 t_f = ( 1.0 - angleRate ) * radius_f * orientation + center_f;
@@ -133,7 +133,43 @@ void main()
 		idiff += sample(l, diffuseLod);
 	}
 	
-	fragment = vec4( idiff / float(diffuseSamples) );
+	// 平均をだして放射照度を決める
+	idiff /= float(diffuseSamples);
+
+	// フレネル項
+	vec4 fresnel = vec4( vec3(0.3), 1.0);
+	// 視線ベクトル
+	vec3 v = normalize(p);
+
+	// 鏡面反射の正規化係数
+	float e = 1.0 / (fresnel.a * 128.0 + 1.0);
+
+	// 鏡面反射
+	vec4 ispec = vec4(0.0);
+
+	// 正反射側の個々のサンプル点について
+	for (int i = 0; i < diffuseSamples; ++i)
+	{
+		// サンプル点の生成
+		vec4 s = sampler(seed, e);
+
+		// サンプル点を法線側に回転したものを法線ベクトルに用いて正反射方向を求める
+		// 注意：めんどくさいから回転処理はずしてる
+		vec3 r = reflect(v, m * s.xyz);
+
+		// サンプル点方向の色を累積する
+		ispec += sample(r, 0);
+	}
+
+	// 平均をだして鏡面反射を決める
+	ispec /= float(diffuseSamples); 
+
+	//fragment = vec4( idiff );
+
+	// 画素の陰影を求める
+	fresnel.a = 0.0;
+	fragment = mix( idiff, ispec, fresnel);
+
 #elif MAPPING_MODE == 1
 	vec4 color = sample(n.xyz, diffuseLod);
 
