@@ -9,42 +9,43 @@ class Window
 	// ウィンドウのハンドル
 	GLFWwindow *const window;
 
-	// ウィンドウのサイズ
-	GLfloat size[ 2 ];
-
-	// ワールド座標系に対するデバイス座標系の拡大率
-	GLfloat s;
-
-	// ワールド座標系に対する正規化デバイス座標系の拡大率
-	GLfloat scale[ 2 ];
-
-	// 縦横比
-	GLfloat aspect;
-
-	// 図形の正規化デバイス座標系上での位置
-	GLfloat location[ 2 ];
+	// 明るさ
+	int blightness;
 
 	// キーボードの状態
 	int keyStatus;
 
+	// 縦横比
+	GLfloat aspect;
+
+	// ワールド座標系に対するデバイス座標系の拡大率
+	GLfloat scale;
+
+	// ワールド座標系に対する正規化デバイス座標系の拡大率
+	GLfloat normalizedScale[ 2 ];
+
+	// ウィンドウのサイズ
+	GLfloat size[ 2 ];
+
+	// 図形の正規化デバイス座標系上での位置
+	GLfloat location[ 2 ];
+
 	// ワールド座標系に対する正規化デバイス座標系の拡大率を更新する
 	void updateScale()
 	{
-		scale[ 0 ] = s * 2.0f / static_cast<GLfloat>( size[ 0 ] );
-		scale[ 1 ] = s * 2.0f / static_cast<GLfloat>( size[ 1 ] );
+		normalizedScale[ 0 ] = scale * 2.0f / static_cast<GLfloat>( size[ 0 ] );
+		normalizedScale[ 1 ] = scale * 2.0f / static_cast<GLfloat>( size[ 1 ] );
 	}
-
-	// 明るさ
-	int blightness;
 
 public:
 	// コンストラクタ
 	Window( int width = 640, int height = 480, const char *title = "Hello!" )
 		: window( glfwCreateWindow( width, height, title, NULL, NULL ) )
-		, s( 100.0f )
+		, scale( 100.0f )
 		, keyStatus( GLFW_RELEASE )
 	{
-		if ( window == NULL ){
+		if ( window == NULL )
+		{
 			// ウィンドウが作成できなかった
 			std::cerr << "Can't create GLFW window." << std::endl;
 			glfwTerminate();
@@ -56,7 +57,8 @@ public:
 
 		// GLEW を初期化する
 		glewExperimental = GL_TRUE;
-		if ( glewInit() != GLEW_OK ){
+		if ( glewInit() != GLEW_OK )
+		{
 			// GLEW の初期化に失敗した
 			std::cerr << "Can't initialize GLEW" << std::endl;
 			return;
@@ -103,18 +105,17 @@ public:
 		glfwSwapBuffers( window );
 
 		// イベントを取り出す
-		//if ( keyStatus == GLFW_RELEASE ) glfwWaitEvents();
-		//else glfwPollEvents();
 		glfwPollEvents();
 
 		// キーボードの状態を調べる
-		if ( glfwGetKey( window, GLFW_KEY_LEFT ) != GLFW_RELEASE ) location[ 0 ] -= scale[ 0 ] / s;
-		else if ( glfwGetKey( window, GLFW_KEY_RIGHT ) != GLFW_RELEASE ) location[ 0 ] += scale[ 0 ] / s;
-		if ( glfwGetKey( window, GLFW_KEY_DOWN ) != GLFW_RELEASE ) location[ 1 ] -= scale[ 1 ] / s;
-		else if ( glfwGetKey( window, GLFW_KEY_UP ) != GLFW_RELEASE ) location[ 1 ] += scale[ 1 ] / s;
+		if ( glfwGetKey( window, GLFW_KEY_LEFT ) != GLFW_RELEASE )	location[ 0 ] -= normalizedScale[ 0 ] / scale;
+		else if ( glfwGetKey( window, GLFW_KEY_RIGHT ) != GLFW_RELEASE )	location[ 0 ] += normalizedScale[ 0 ] / scale;
+		if ( glfwGetKey( window, GLFW_KEY_DOWN ) != GLFW_RELEASE )	location[ 1 ] -= normalizedScale[ 1 ] / scale;
+		else if ( glfwGetKey( window, GLFW_KEY_UP ) != GLFW_RELEASE )	location[ 1 ] += normalizedScale[ 1 ] / scale;
 
 		// マウス左ボタンの状態を調べる
-		if ( glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_1 ) != GLFW_RELEASE ){
+		if ( glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_1 ) != GLFW_RELEASE )
+		{
 			// マウスカーソルの位置を取得する
 			double x, y;
 			glfwGetCursorPos( window, &x, &y );
@@ -140,7 +141,7 @@ public:
 	// ワールド座標系に対するデバイス座標系の拡大率を取り出す
 	GLfloat getScale() const
 	{
-		return s;
+		return scale;
 	}
 
 	// 位置を取り出す
@@ -158,7 +159,8 @@ public:
 		// このインスタンスのthisポインタを得る
 		Window *const instance( static_cast< Window* >( glfwGetWindowUserPointer( window ) ) );
 
-		if ( instance != NULL ){
+		if ( instance != NULL )
+		{
 			// 開いたウィンドウのサイズを保存する
 			instance->size[ 0 ] = width;
 			instance->size[ 1 ] = height;
@@ -174,9 +176,10 @@ public:
 		// このインスタンスのthisポインタを得る
 		Window *const instance( static_cast< Window* >( glfwGetWindowUserPointer( window ) ) );
 
-		if ( instance != NULL ){
+		if ( instance != NULL )
+		{
 			// ワールド座標系に対するデバイス座標系の拡大率を更新する
-			instance->s += static_cast< GLfloat >( y );
+			instance->scale += static_cast< GLfloat >( y );
 		}
 	}
 
@@ -186,7 +189,8 @@ public:
 		// このインスタンスのthisポインタを得る
 		Window *const instance( static_cast< Window* >( glfwGetWindowUserPointer( window ) ) );
 
-		if ( instance != NULL ){
+		if ( instance != NULL )
+		{
 			// キーの状態を保存する
 			instance->keyStatus = action;
 		}

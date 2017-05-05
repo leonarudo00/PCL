@@ -1,54 +1,70 @@
 #version 150 core
 #extension GL_ARB_explicit_attrib_location : enable
 
-out		vec4		fragment;		// 画素の色
-in		vec3		vc;				// 頂点色の補間値
-in		vec4		n;				// ローカル座標系での頂点法線
-in		mat4		mp;
-in		vec3		p;
-uniform	sampler2D	imap;			// 放射照度マップ
-uniform sampler2D	image;			// 環境のテクスチャ
-uniform int			diffuseSamples;	// 法線方向のサンプル点の数
-uniform int			diffuseLod;		// 法線方向のミップマップのレベル
-uniform float		radius;			// サンプル点の散布半径
+// THETA画像のマッピング方法
+// 0 : 放射照度マッピング
+// 1 : 環境マッピング
+#define MAPPING_MODE 0
+
+in		vec3		p;						// ローカル座標系での頂点位置
+in		vec4		n;						// ローカル座標系での頂点法線
+out		vec4		fragment;				// 画素の色
+uniform int			diffuseLod;				// 法線方向のミップマップのレベル
+uniform int			diffuseSamples;			// 法線方向のサンプル点の数
+uniform float		radius;					// サンプル点の散布半径
+uniform	mat4		projectionMatrix;		// 透視投影変換行列
+uniform	sampler2D	irrmap;					// 放射照度マップ
+uniform sampler2D	envImage;				// 環境のテクスチャ
 
 // 環境テクスチャのサイズ
-vec2 size = textureSize(image,0);	
+vec2 size = textureSize(envImage,0);	
 
-// 環境テクスチャの後方カメラ像のテクスチャ空間上の半径と中心
-vec2 radius_b = vec2( -0.25, 0.25 * size.x / size.y );	
-vec2 center_b = vec2( 0.25, radius_b.t );
+// 一枚の魚眼画像のアスペクト比
+float aspect = ( size.x * 0.5 ) / size.y;
+
+ // 仰角(=π/2)の逆数
+const float invElevationAngle = 0.63661977;
 
 // 環境テクスチャの前方カメラ像のテクスチャ空間上の半径と中心
-vec2 radius_f = vec2( 0.25, radius_b.t );	
-vec2 center_f = vec2( 0.75, center_b.t );
+// なんで半径なのにマイナスなの
+vec2 radius_f = vec2( -0.25, 0.5 * aspect );	
+vec2 center_f = vec2( 0.25, radius_f.t );
 
-// 環境マップのサンプリング
+// 環境テクスチャの後方カメラ像のテクスチャ空間上の半径と中心
+vec2 radius_b = vec2( 0.25, radius_f.t );	
+vec2 center_b = vec2( 0.75, center_f.t );
+
+// DualFisheye画像のサンプリング
+// lod : ミップマップのレベル
 vec4 sample( vec3 vector, int lod )
 {
-	//
-	// RICOH THETA S のライブストリーミング画像の場合
-	//
+	// vectorの前方カメラ正面方向に対する天頂角
+	// 天頂角 = acos( vector.z / ||vector|| )
+	// [前方,後方]カメラ天頂方向ならvector.z = [1.0,-1.0]、acos(vector.z) = [0,π]
+	float zenithAngle = acos( vector.z );
 
-	// この方向ベクトルの相対的な仰角
-	float angle = 1.0 - acos(vector.z) * 0.63661977;
+	// 仰角と天頂角の比率θmax/θ
+	// 素直にθmax/θでもとめるとゼロ割が発生する可能性があるのでやや遠まわし。
+	float angleRate = 1.0 - zenithAngle * invElevationAngle;
 
-	// 前後のテクスチャの混合比
-	float blend = smoothstep(-0.02, 0.02, angle);
-
-	// この方向ベクトルの yx 上での方向ベクトル
+	// vectorの yx 上での方位ベクトル
+	// DualFisheye画像の重ならない領域に丸めている？
 	vec2 orientation = normalize(vector.yx) * 0.885;
 
 	// 裏と表のテクスチャ座標を求める
-	vec2 t_b = (1.0 - angle) * orientation * radius_b + center_b;
-	vec2 t_f = (1.0 + angle) * orientation * radius_f + center_f;
+	vec2 t_f = ( 1.0 - angleRate ) * radius_f * orientation + center_f;
+	vec2 t_b = ( 1.0 + angleRate ) * radius_b * orientation + center_b;
 
 	// 裏と表の環境マップをサンプリングする
-	vec4 color_b = textureLod(image, t_b, lod);
-	vec4 color_f = textureLod(image, t_f, lod);
+	vec4 color_f = textureLod(envImage, t_f, lod);
+	vec4 color_b = textureLod(envImage, t_b, lod);
+
+	// 前後のテクスチャの混合比
+	// エルミート補間らしいけどよくわからん
+	float blend = smoothstep(-0.02, 0.02, angleRate );
 
 	// サンプリングした色をブレンドする
-	return mix(color_f, color_b, blend);
+	return mix(color_b, color_f, blend);
 }
 
 // ノイズ発生
@@ -70,6 +86,7 @@ float xorshift(inout uint y)
 }
 
 // サンプル点の生成
+// これの理屈がよくわからん
 vec4 sampler(inout uint seed, in float e)
 {
 	float z = pow(xorshift(seed), e);
@@ -86,8 +103,9 @@ void main()
 	vec2 st = n.xz / ( 2.0f * ( 1 + n.y ) ) + 0.5;
 
 	// 放射照度マップのカラーを取得
-	vec4 irrColor = texture( imap, st );
+	vec4 irrColor = texture( irrmap, st );
 
+#if MAPPING_MODE == 0
 	// サンプル点を法線方向に回転する変換行列
 	vec3 zn = vec3(-n.y, n.x, 0.0);
 	float len = length(zn);
@@ -111,17 +129,14 @@ void main()
 		// サンプル点を法線側に回転する
 		vec3 l = m * d.xyz;
 
-		// サンプル点の位置を p からの相対位置に平行移動した後その点のクリッピング座標系上の位置 q を求める
-		vec4 q = mp * vec4(p + l * d.w, 1.0);
-
-		// テクスチャ座標に変換する
-		q = q * 0.5 / q.w + 0.5;
-
 		// サンプル点方向の色を累積する
 		idiff += sample(l, diffuseLod);
 	}
-
-	vec4 color = sample(n.xyz, 5);
-
+	
 	fragment = vec4( idiff / float(diffuseSamples) );
+#elif MAPPING_MODE == 1
+	vec4 color = sample(n.xyz, diffuseLod);
+
+	fragment = vec4( color.zyx, color.w );
+#endif
 }

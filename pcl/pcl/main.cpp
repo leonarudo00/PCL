@@ -2,35 +2,48 @@
 #define NOMINMAX
 #define _CRT_SECURE_NO_WARNINGS
 
+// 事前計算した放射照度マップを使用するなら 1
+#define USEMAP 1
+
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "glfw3.lib")
 #pragma comment(lib, "glew32.lib")
 
-#include <iostream>
-#include <Windows.h>
-//#include <pcl\visualization\cloud_viewer.h>
-//#include <pcl\point_types.h> 
-//#include <pcl\io\vtk_lib_io.h>
 #include <cstdlib>
-#include <vector>
-#include <memory>
 #include <fstream>
+#include <iostream>
+#include <memory>
+#include <vector>
+#include <Windows.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include "window.h"
-#include "MyOpenGL.h"
-#include "Mesh.h"
 #include "opencv2\opencv.hpp"
+//#include <pcl\visualization\cloud_viewer.h>
+//#include <pcl\point_types.h> 
+//#include <pcl\io\vtk_lib_io.h>#include "window.h"
+#include "window.h"
+#include "Mesh.h"
+#include "MyOpenGL.h"
+
+
+// 投影変換行列
+GLfloat projectionMatrix[ 16 ];
+
+// 一時的な変換行列
+GLfloat temp0[ 16 ], temp1[ 16 ];
 
 // キャプチャに用いるカメラのデバイス番号
 const int captureDevice( 1 );
 
-// 事前計算した放射照度マップを使用するなら 1
-#define USEMAP 1
+// キャプチャするフレームのサイズ (0 ならデフォルト)
+const int captureWidth( 1280 ), captureHeight( 720 );
 
 // objデータを取得
-const char filename[] = "mario.obj";
+const char filename[] = "ball.obj";
 
+//
+// 放射照度マップによる陰影付けで使う変数群
+//
 // 放射照度マップ
 const char *const irrmaps[]=
 {
@@ -43,11 +56,12 @@ const char *const envmaps[]=
 	"env0.tga"
 };
 
+// 天空画像
+const char skymap[] = "skymap0.tga";
+
 // 放射照度マップの数
 const size_t mapcount( sizeof irrmaps / sizeof irrmaps[ 0 ] );
 
-// 天空画像
-const char skymap[] = "skymap0.tga";
 
 // 大域環境光強度
 const GLfloat ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
@@ -62,20 +76,18 @@ const GLsizei skysize( 1024 );
 const GLsizei imapsize( 256 );
 const GLsizei emapsize( 256 );
 
-GLfloat projectionMatrix[ 16 ];		// 投影変換行列
-GLfloat temp0[ 16 ], temp1[ 16 ];	// 一時的な変換行列
-
+//
+// 天空画像のサンプリングによる陰影付けで使う変数群
+//
 // 法線方向のサンプル数
 const GLsizei diffuseSamples( 32 );
 
 // 法線方向のミップマップのレベル
-const GLint diffuseLod( 5 );
+const GLint diffuseLod( 0 );
 
 // サンプル点の散布半径
 const GLfloat radius( 0.1f );
 
-// キャプチャした画像
-GLubyte *buffer;
 
 // 点群の型を定義しておく
 //typedef pcl::PointXYZ PointType;
@@ -93,11 +105,16 @@ GLubyte *buffer;
 	ne.compute( *cloud_normals );
 }*/
 
+
 void main()
 {
 	// カメラの使用を開始する
 	cv::VideoCapture cap( captureDevice );
 	if ( !cap.isOpened() ) return;
+
+	// カメラ解像度を設定する
+	cap.set( CV_CAP_PROP_FRAME_WIDTH, captureWidth );
+	cap.set( CV_CAP_PROP_FRAME_HEIGHT, captureHeight );
 
 	// GLFW を初期化する
 	if ( glfwInit() == GL_FALSE )
@@ -125,16 +142,14 @@ void main()
 	glEnable( GL_DEPTH_TEST );
 	glEnable( GL_CULL_FACE );
 	//glEnable( GL_MULTISAMPLE );
-
-	// 陰影付けを無効にする
 	//glDisable( GL_LIGHTING );
 
-	// テクスチャ
+	// 放射照度マップと環境マップの準備
 	GLuint imap[ mapcount ], emap[ mapcount ];
 	glGenTextures( mapcount, imap );
 	glGenTextures( mapcount, emap );
 
-	// テクスチャの読み込み
+	// テクスチャに各マップを読み込む
 	for ( size_t i = 0; i < mapcount; ++i )
 	{
 #if USEMAP
@@ -164,25 +179,24 @@ void main()
 
 	// 平行投影変換行列を求める
 	MyOpenGL::cameraMatrix( 30.f, 1.0f, 7.0f, 11.0f, temp1 );
-
 	// 視野変換行列を求める
 	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 視野変換行列と投影変換行列の積を求める
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 
 	// 環境のテクスチャを準備する
-	const auto image( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
+	const auto envImage( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
 
 	// uniform変数の場所を取得する
-	const GLint sizeLoc( glGetUniformLocation( program, "size" ) );
-	const GLint scaleLoc( glGetUniformLocation( program, "scale" ) );
-	const GLint locationLoc( glGetUniformLocation( program, "location" ) );
-	const GLint projectionMatrixLoc( glGetUniformLocation( program, "projectionMatrix" ) );
-	const GLint	imapLoc( glGetUniformLocation( program, "imap" ) );
-	const GLint imageLoc( glGetUniformLocation( program, "image" ) );
-	const GLint diffuseSamplesLoc( glGetUniformLocation( program, "diffuseSamples" ) );
-	const GLint duffuseLodLoc( glGetUniformLocation( program, "diffuseLod" ) );
-	const GLint radiusLoc( glGetUniformLocation( program, "radius" ) );
+	const GLint diffuseSamplesLoc	( glGetUniformLocation( program, "diffuseSamples" ) );
+	const GLint duffuseLodLoc		( glGetUniformLocation( program, "diffuseLod" ) );
+	const GLint envImageLoc			( glGetUniformLocation( program, "envImage" ) );
+	const GLint	irrmapLoc			( glGetUniformLocation( program, "irrmap" ) );
+	const GLint locationLoc			( glGetUniformLocation( program, "location" ) );
+	const GLint projectionMatrixLoc	( glGetUniformLocation( program, "projectionMatrix" ) );
+	const GLint radiusLoc			( glGetUniformLocation( program, "radius" ) );
+	const GLint scaleLoc			( glGetUniformLocation( program, "scale" ) );
+	const GLint sizeLoc				( glGetUniformLocation( program, "size" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename, false );
@@ -196,7 +210,7 @@ void main()
 		// キャプチャした画像を表示する
 		cv::Mat frame;
 		cap >> frame;
-		cv::imshow( "image", frame );
+		if ( !frame.empty() ) cv::imshow( "image", frame );
 
 		// ウィンドウを消去する
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -222,17 +236,19 @@ void main()
 		glUseProgram( program );
 
 		// uniform変数に値を設定する
-		glUniform2fv( sizeLoc, 1, window.getSize() );
-		glUniform1f( scaleLoc, window.getScale() );
-		glUniform2fv( locationLoc, 1, window.getLocation() );
-		glUniformMatrix4fv( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
-		glUniform1i( diffuseSamplesLoc, diffuseSamples );
-		glUniform1i( duffuseLodLoc, diffuseLod );
-		glUniform1f( radiusLoc, radius );
-		glUniform1i( imapLoc, 1 );
-		glUniform1i( imageLoc, 2 );
+		glUniform1i			( diffuseSamplesLoc	 , diffuseSamples );
+		glUniform1i			( duffuseLodLoc		 , diffuseLod );
+		glUniform1i			( envImageLoc		 , 2 );
+		glUniform1i			( irrmapLoc			 , 1 );
+		glUniform1f			( radiusLoc			 , radius );
+		glUniform1f			( scaleLoc			 , window.getScale() );
+		glUniform2fv		( locationLoc		 , 1, window.getLocation() );
+		glUniform2fv		( sizeLoc			 , 1, window.getSize() );
+		glUniformMatrix4fv	( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
+
+		// テクスチャ番号２に環境マップを割り当てる
 		glActiveTexture( GL_TEXTURE2 );
-		glBindTexture( GL_TEXTURE_2D, image );
+		glBindTexture( GL_TEXTURE_2D, envImage );
 
 		// 環境のテクスチャに画像を転送する
 		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), GL_RGB, GL_UNSIGNED_BYTE, frame.data );
@@ -246,6 +262,7 @@ void main()
 
 		// ESCAPEキーが押されたら終了
 		if ( GetKeyState( VK_ESCAPE ) < 0 ) break;
+
 	}
 
 	/*
