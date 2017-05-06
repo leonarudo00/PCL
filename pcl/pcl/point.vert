@@ -12,9 +12,7 @@ void main()
 {
 	p = position.xyz;
 
-	n = normalize(normal);
-
-	float z = position.z * 6.0 + 2.0;
+	n = normal;
 
 	gl_Position = projectionMatrix * position * vec4(2.0 * scale / size, 1.0, 1.0) + vec4(location, 0.0, 0.0);
 }

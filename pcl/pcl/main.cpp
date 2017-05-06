@@ -184,11 +184,11 @@ void main()
 	// プログラムオブジェクトを作成する
 	const GLuint program( MyOpenGL::loadProgram( "point.vert", "point.frag" ) );
 
-	// 平行投影変換行列を求める
+	// 投影変換行列を求める
 	MyOpenGL::cameraMatrix( 30.f, 1.0f, 7.0f, 11.0f, temp1 );
 	// 視野変換行列を求める
 	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
-	// 視野変換行列と投影変換行列の積を求める
+	// 透視投影変換行列をもとめる
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 
 	// 環境のテクスチャを準備する
@@ -243,15 +243,15 @@ void main()
 		glUseProgram( program );
 
 		// uniform変数に値を設定する
-		glUniform1i			( diffuseSamplesLoc	 , diffuseSamples );
-		glUniform1i			( duffuseLodLoc		 , diffuseLod );
-		glUniform1i			( envImageLoc		 , 2 );
-		glUniform1i			( irrmapLoc			 , 1 );
-		glUniform1f			( radiusLoc			 , radius );
-		glUniform1f			( scaleLoc			 , window.getScale() );
-		glUniform2fv		( locationLoc		 , 1, window.getLocation() );
-		glUniform2fv		( sizeLoc			 , 1, window.getSize() );
-		glUniformMatrix4fv	( projectionMatrixLoc, 1, GL_FALSE, projectionMatrix );
+		glUniform1i			( diffuseSamplesLoc,	diffuseSamples );
+		glUniform1i			( duffuseLodLoc,		diffuseLod );
+		glUniform1i			( envImageLoc,			2 );
+		glUniform1i			( irrmapLoc,			1 );
+		glUniform1f			( radiusLoc,			radius );
+		glUniform1f			( scaleLoc,				window.getScale() );
+		glUniform2fv		( locationLoc,			1, window.getLocation() );
+		glUniform2fv		( sizeLoc,				1, window.getSize() );
+		glUniformMatrix4fv	( projectionMatrixLoc,  1, GL_FALSE, projectionMatrix );
 
 		// テクスチャ番号２に環境マップを割り当てる
 		glActiveTexture( GL_TEXTURE2 );
@@ -269,7 +269,6 @@ void main()
 
 		// ESCAPEキーが押されたら終了
 		if ( GetKeyState( VK_ESCAPE ) < 0 ) break;
-
 	}
 
 	/*

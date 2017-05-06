@@ -262,8 +262,90 @@ namespace MyOpenGL{
 		matrix[ 11 ] = -1.0f;
 		matrix[ 14 ] = -2.0f * Far * Near / dz;
 		matrix[ 1 ] = matrix[ 2 ] = matrix[ 3 ] = matrix[ 4 ] =
-			matrix[ 6 ] = matrix[ 7 ] = matrix[ 8 ] = matrix[ 9 ] =
-			matrix[ 12 ] = matrix[ 13 ] = matrix[ 15 ] = 0.0f;
+		matrix[ 6 ] = matrix[ 7 ] = matrix[ 8 ] = matrix[ 9 ] =
+		matrix[ 12 ] = matrix[ 13 ] = matrix[ 15 ] = 0.0f;
+	}
+
+	/*
+	** 変換行列：逆行列を設定する
+	*/
+	void loadInvert( GLfloat *marray, GLfloat *array )
+	{
+		GLfloat lu[ 20 ], *plu[ 4 ];
+
+		// j 行の要素の値の絶対値の最大値を plu[j][4] に求める
+		for ( int j = 0; j < 4; ++j )
+		{
+			GLfloat max( fabs( *( plu[ j ] = lu + 5 * j ) = *( marray++ ) ) );
+
+			for ( int i = 0; ++i < 4; )
+			{
+				GLfloat a( fabs( plu[ j ][ i ] = *( marray++ ) ) );
+				if ( a > max ) max = a;
+			}
+			if ( max == 0.0f ) return;
+			plu[ j ][ 4 ] = 1.0f / max;
+		}
+
+		// ピボットを考慮した LU 分解
+		for ( int j = 0; j < 4; ++j )
+		{
+			GLfloat max( fabs( plu[ j ][ j ] * plu[ j ][ 4 ] ) );
+			int i = j;
+
+			for ( int k = j; ++k < 4; )
+			{
+				GLfloat a( fabs( plu[ k ][ j ] * plu[ k ][ 4 ] ) );
+				if ( a > max )
+				{
+					max = a;
+					i = k;
+				}
+			}
+			if ( i > j )
+			{
+				GLfloat *t( plu[ j ] );
+				plu[ j ] = plu[ i ];
+				plu[ i ] = t;
+			}
+			if ( plu[ j ][ j ] == 0.0f ) return;
+			for ( int k = j; ++k < 4; )
+			{
+				plu[ k ][ j ] /= plu[ j ][ j ];
+				for ( int i = j; ++i < 4; )
+				{
+					plu[ k ][ i ] -= plu[ j ][ i ] * plu[ k ][ j ];
+				}
+			}
+		}
+
+		// LU 分解から逆行列を求める
+		for ( int k = 0; k < 4; ++k )
+		{
+			// array に単位行列を設定する
+			for ( int i = 0; i < 4; ++i )
+			{
+				array[ i * 4 + k ] = ( plu[ i ] == lu + k * 5 ) ? 1.0f : 0.0f;
+			}
+			// lu から逆行列を求める
+			for ( int i = 0; i < 4; ++i )
+			{
+				for ( int j = i; ++j < 4; )
+				{
+					array[ j * 4 + k ] -= array[ i * 4 + k ] * plu[ j ][ i ];
+				}
+			}
+			for ( int i = 4; --i >= 0; )
+			{
+				for ( int j = i; ++j < 4; )
+				{
+					array[ i * 4 + k ] -= plu[ i ][ j ] * array[ j * 4 + k ];
+				}
+				array[ i * 4 + k ] /= plu[ i ][ i ];
+			}
+		}
+
+		return;
 	}
 
 	// 要素の内積
