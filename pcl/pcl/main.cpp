@@ -46,7 +46,7 @@ const char *const filename[] =
 	"mario.obj"
 };
 // 使用するobjファイル番号
-const int objFile( 1 );
+const int objFile( 2 );
 
 //
 // 放射照度マップによる陰影付けで使う変数群
@@ -69,7 +69,6 @@ const char skymap[] = "skymap0.tga";
 // 放射照度マップの数
 const size_t mapcount( sizeof irrmaps / sizeof irrmaps[ 0 ] );
 
-
 // 大域環境光強度
 const GLfloat ambient[] = { 0.2f, 0.2f, 0.2f, 1.0f };
 
@@ -86,11 +85,17 @@ const GLsizei emapsize( 256 );
 //
 // 天空画像のサンプリングによる陰影付けで使う変数群
 //
-// 法線方向のサンプル数
+// 拡散反射光のサンプル数
 const GLsizei diffuseSamples( 32 );
 
-// 法線方向のミップマップのレベル
+// 拡散反射光をサンプルする際のミップマップのレベル
 const GLint diffuseLod( 0 );
+
+// 鏡面反射光のサンプル数
+const GLsizei specularSamples( 16 );
+
+// 鏡面反射光をサンプルする際のミップマップのレベル
+const GLint specularLod( 0 );
 
 // サンプル点の散布半径
 const GLfloat radius( 0.1f );
@@ -185,18 +190,21 @@ void main()
 	const GLuint program( MyOpenGL::loadProgram( "point.vert", "point.frag" ) );
 
 	// 投影変換行列を求める
-	MyOpenGL::cameraMatrix( 30.f, 1.0f, 7.0f, 11.0f, temp1 );
+	MyOpenGL::cameraMatrix( 30.f, 1.0f, 5.0f, 11.0f, temp1 );
 	// 視野変換行列を求める
 	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 透視投影変換行列をもとめる
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
+
+	GLfloat invert[ 16 ];
+	MyOpenGL::loadNormal( temp0, invert );
 
 	// 環境のテクスチャを準備する
 	const auto envImage( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
 
 	// uniform変数の場所を取得する
 	const GLint diffuseSamplesLoc	( glGetUniformLocation( program, "diffuseSamples" ) );
-	const GLint duffuseLodLoc		( glGetUniformLocation( program, "diffuseLod" ) );
+	const GLint diffuseLodLoc		( glGetUniformLocation( program, "diffuseLod" ) );
 	const GLint envImageLoc			( glGetUniformLocation( program, "envImage" ) );
 	const GLint	irrmapLoc			( glGetUniformLocation( program, "irrmap" ) );
 	const GLint locationLoc			( glGetUniformLocation( program, "location" ) );
@@ -204,6 +212,10 @@ void main()
 	const GLint radiusLoc			( glGetUniformLocation( program, "radius" ) );
 	const GLint scaleLoc			( glGetUniformLocation( program, "scale" ) );
 	const GLint sizeLoc				( glGetUniformLocation( program, "size" ) );
+	const GLint specularLodLoc		( glGetUniformLocation( program, "specularLod" ) );
+	const GLint specularSamplesLoc	( glGetUniformLocation( program, "specularSamples" ) );
+	const GLint transMatrixNormalLoc( glGetUniformLocation( program, "transMatrixNormal" ) );
+	const GLint transMatrixView		( glGetUniformLocation( program, "transMatrixView" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename[objFile], false );
@@ -243,15 +255,19 @@ void main()
 		glUseProgram( program );
 
 		// uniform変数に値を設定する
+		glUniform1i			( diffuseLodLoc,		diffuseLod );
 		glUniform1i			( diffuseSamplesLoc,	diffuseSamples );
-		glUniform1i			( duffuseLodLoc,		diffuseLod );
 		glUniform1i			( envImageLoc,			2 );
 		glUniform1i			( irrmapLoc,			1 );
+		glUniform1i			( specularLodLoc,		specularLod );
+		glUniform1i			( specularSamplesLoc,	specularSamples );
 		glUniform1f			( radiusLoc,			radius );
 		glUniform1f			( scaleLoc,				window.getScale() );
 		glUniform2fv		( locationLoc,			1, window.getLocation() );
 		glUniform2fv		( sizeLoc,				1, window.getSize() );
 		glUniformMatrix4fv	( projectionMatrixLoc,  1, GL_FALSE, projectionMatrix );
+		glUniformMatrix4fv	( transMatrixNormalLoc, 1, GL_FALSE, invert );
+		glUniformMatrix4fv	( transMatrixView,		1, GL_FALSE, temp0 );
 
 		// テクスチャ番号２に環境マップを割り当てる
 		glActiveTexture( GL_TEXTURE2 );

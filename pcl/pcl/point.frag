@@ -2,19 +2,19 @@
 #extension GL_ARB_explicit_attrib_location : enable
 
 // THETA画像のマッピング方法
-// 0 : 放射照度マッピング
+// 0 : ライブ放射照度マッピング
 // 1 : 環境マッピング
+// 2 : 事前計算済みの放射照度マッピング
 #define MAPPING_MODE 0
 
-in		vec3		p;						// ローカル座標系での頂点位置
+in		vec4		p;						// ローカル座標系での頂点位置
 in		vec4		n;						// ローカル座標系での頂点法線
 out		vec4		fragment;				// 画素の色
-uniform int			diffuseLod;				// 法線方向のミップマップのレベル
-uniform int			diffuseSamples;			// 法線方向のサンプル点の数
+uniform int			diffuseLod;				// 拡散反射光をサンプルするミップマップのレベル
+uniform int			diffuseSamples;			// 拡散反射光のサンプル点の数
+uniform int			specularLod;			// 鏡面反射光をサンプルするミップマップのレベル
+uniform int			specularSamples;		// 鏡面反射光のサンプル点の数
 uniform float		radius;					// サンプル点の散布半径
-uniform	mat4		projectionMatrix;		// 透視投影変換行列
-uniform mat4		transMatrixToView;		// 視野変換行列
-uniform	mat4		transMatrixNormal;
 uniform	sampler2D	irrmap;					// 放射照度マップ
 uniform sampler2D	envImage;				// 環境のテクスチャ
 
@@ -101,21 +101,19 @@ vec4 sampler(inout uint seed, in float e)
 
 void main()
 {
-	// テクスチャ座標をもとめる
-	vec2 st = n.xz / ( 2.0f * ( 1 + n.y ) ) + 0.5;
 
-	// 放射照度マップのカラーを取得
-	vec4 irrColor = texture( irrmap, st );
+#if MAPPING_MODE == 0
+	//
+	// ライブ放射照度マッピング
+	//
 
 	// サンプル点を法線方向に回転する変換行列
+	// よくわからん
 	vec3 zn = vec3(-n.y, n.x, 0.0);
 	float len = length(zn);
 	vec3 t = mix(vec3(1.0, 0.0, 0.0), zn / len, step(0.001, len));
 	vec3 b = cross(n.xyz, t);
 	mat3 m = mat3(t, b, n);
-
-#if MAPPING_MODE == 0
-	
 
 	// 乱数のタネ
 	uint seed = rand(gl_FragCoord.xy);
@@ -141,47 +139,64 @@ void main()
 	idiff /= float(diffuseSamples);
 
 	// フレネル項
-	vec4 fresnel = vec4( vec3( 1.0 ), 1.0 );
+	vec4 fresnel = vec4( vec3( 0.05 ), 1.0 );
 	
 	// 視線ベクトル
-	vec3 v = normalize( p );
+	vec3 v = normalize( p.xyz );
 
 	// 鏡面反射の正規化係数
 	float e = 1.0 / (fresnel.a * 128.0 + 1.0);
 
-	// 鏡面反射
+	// 鏡面反射光強度
 	vec4 ispec = vec4(0.0);
 
 	// 正反射方向
-	vec3 r = reflect(v, n.xyz);
-  
+	//vec3 r = reflect( v, n.xyz );
+
 	// 正反射方向の色
-	vec4 spec = sample(r, 0);
+	//vec4 spec = sample(r, 0);
 
 	// 正反射側の個々のサンプル点について
-	for (int i = 0; i < 16; ++i)
+	for (int i = 0; i < diffuseSamples; ++i)
 	{
 		// サンプル点の生成
 		vec4 s = sampler(seed, e);
 
 		// サンプル点を法線側に回転したものを法線ベクトルに用いて正反射方向を求める
-		// mtは省略
+		// テクスチャの回転行列は省略
 		vec3 r = reflect(v, m * s.xyz);
 
 		// サンプル点方向の色を累積する
-		ispec += sample(r, 0);
+		ispec += sample(r, diffuseLod);
 	}
 
-	ispec /= 16.0f;
+	// 平均をだして鏡面反射光強度をきめる
+	ispec /= float(diffuseSamples);
 
 	// 画素の陰影を求める
 	fresnel.a = 0.0;
-	vec4 color = mix( idiff, spec, fresnel );
+	vec4 color = mix( idiff, ispec, fresnel );
 	fragment = vec4( color.zyx, color.w );
 
 #elif MAPPING_MODE == 1
+	//
+	// 環境マッピング
+	//
+
 	vec4 color = sample( n.xyz, diffuseLod );
 
 	fragment = vec4( color.zyx, color.w );
+
+#elif MAPPING_MODE == 2
+	//
+	// 事前計算済みの放射照度マッピング
+	//
+
+	// テクスチャ座標をもとめる
+	vec2 st = n.xz / ( 2.0f * ( 1 + n.y ) ) + 0.5;
+
+	// 放射照度マップのカラーを取得
+	vec4 irrColor = texture( irrmap, st );
+
 #endif
 }
