@@ -46,7 +46,7 @@ const char *const filename[] =
 	"mario.obj"
 };
 // 使用するobjファイル番号
-const int objFile( 2 );
+const int objFile( 0 );
 
 //
 // 放射照度マップによる陰影付けで使う変数群
@@ -86,16 +86,16 @@ const GLsizei emapsize( 256 );
 // 天空画像のサンプリングによる陰影付けで使う変数群
 //
 // 拡散反射光のサンプル数
-const GLsizei diffuseSamples( 32 );
+const GLsizei diffuseSamples( 100 );
 
 // 拡散反射光をサンプルする際のミップマップのレベル
 const GLint diffuseLod( 0 );
 
 // 鏡面反射光のサンプル数
-const GLsizei specularSamples( 16 );
+const GLsizei specularSamples( 1 );
 
 // 鏡面反射光をサンプルする際のミップマップのレベル
-const GLint specularLod( 0 );
+const GLint specularLod( 16 );
 
 // サンプル点の散布半径
 const GLfloat radius( 0.1f );
@@ -192,12 +192,12 @@ void main()
 	// 投影変換行列を求める
 	MyOpenGL::cameraMatrix( 30.f, 1.0f, 5.0f, 11.0f, temp1 );
 	// 視野変換行列を求める
-	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
+	MyOpenGL::lookAt( 0.0f, 0.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 透視投影変換行列をもとめる
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 
-	GLfloat invert[ 16 ];
-	MyOpenGL::loadNormal( temp0, invert );
+	GLfloat transNormalMat[ 16 ];
+	MyOpenGL::loadNormal( temp0, transNormalMat );
 
 	// 環境のテクスチャを準備する
 	const auto envImage( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
@@ -214,8 +214,8 @@ void main()
 	const GLint sizeLoc				( glGetUniformLocation( program, "size" ) );
 	const GLint specularLodLoc		( glGetUniformLocation( program, "specularLod" ) );
 	const GLint specularSamplesLoc	( glGetUniformLocation( program, "specularSamples" ) );
-	const GLint transMatrixNormalLoc( glGetUniformLocation( program, "transMatrixNormal" ) );
-	const GLint transMatrixView		( glGetUniformLocation( program, "transMatrixView" ) );
+	const GLint transNormalMatLoc	( glGetUniformLocation( program, "transNormalMat" ) );
+	const GLint transViewMat		( glGetUniformLocation( program, "transViewMat" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename[objFile], false );
@@ -229,7 +229,7 @@ void main()
 		// キャプチャした画像を表示する
 		cv::Mat frame;
 		cap >> frame;
-		if ( !frame.empty() ) cv::imshow( "image", frame );
+		//if ( !frame.empty() ) cv::imshow( "image", frame );
 
 		// ウィンドウを消去する
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -266,8 +266,8 @@ void main()
 		glUniform2fv		( locationLoc,			1, window.getLocation() );
 		glUniform2fv		( sizeLoc,				1, window.getSize() );
 		glUniformMatrix4fv	( projectionMatrixLoc,  1, GL_FALSE, projectionMatrix );
-		glUniformMatrix4fv	( transMatrixNormalLoc, 1, GL_FALSE, invert );
-		glUniformMatrix4fv	( transMatrixView,		1, GL_FALSE, temp0 );
+		glUniformMatrix4fv	( transNormalMatLoc,	1, GL_FALSE, transNormalMat );
+		glUniformMatrix4fv	( transViewMat,			1, GL_FALSE, temp0 );
 
 		// テクスチャ番号２に環境マップを割り当てる
 		glActiveTexture( GL_TEXTURE2 );

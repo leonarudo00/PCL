@@ -139,7 +139,7 @@ void main()
 	idiff /= float(diffuseSamples);
 
 	// フレネル項
-	vec4 fresnel = vec4( vec3( 0.05 ), 1.0 );
+	vec4 fresnel = vec4( vec3( 0.1 ), 1.0 );
 	
 	// 視線ベクトル
 	vec3 v = normalize( p.xyz );
@@ -151,13 +151,13 @@ void main()
 	vec4 ispec = vec4(0.0);
 
 	// 正反射方向
-	//vec3 r = reflect( v, n.xyz );
+	vec3 r = reflect( v, n.xyz );
 
 	// 正反射方向の色
-	//vec4 spec = sample(r, 0);
+	vec4 spec = sample(r, 0);
 
 	// 正反射側の個々のサンプル点について
-	for (int i = 0; i < diffuseSamples; ++i)
+	for (int i = 0; i < specularSamples; ++i)
 	{
 		// サンプル点の生成
 		vec4 s = sampler(seed, e);
@@ -167,15 +167,15 @@ void main()
 		vec3 r = reflect(v, m * s.xyz);
 
 		// サンプル点方向の色を累積する
-		ispec += sample(r, diffuseLod);
+		ispec += sample(r, specularLod);
 	}
 
 	// 平均をだして鏡面反射光強度をきめる
-	ispec /= float(diffuseSamples);
+	ispec /= float(specularSamples);
 
 	// 画素の陰影を求める
 	fresnel.a = 0.0;
-	vec4 color = mix( idiff, ispec, fresnel );
+	vec4 color = mix( idiff, spec, fresnel );
 	fragment = vec4( color.zyx, color.w );
 
 #elif MAPPING_MODE == 1
