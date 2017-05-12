@@ -15,6 +15,9 @@ class Window
 	// キーボードの状態
 	int keyStatus;
 
+	// マウスホイールの回転量
+	double wheelRotation;
+
 	// 縦横比
 	GLfloat aspect;
 
@@ -43,6 +46,8 @@ public:
 		: window( glfwCreateWindow( width, height, title, NULL, NULL ) )
 		, scale( 100.0f )
 		, keyStatus( GLFW_RELEASE )
+		, wheelRotation( 0.0 )
+		, aspect( width / height )
 	{
 		if ( window == NULL )
 		{
@@ -150,6 +155,12 @@ public:
 		return location;
 	}
 
+	// マウスホイールの回転量を取り出す
+	const double getWheelRotation() const
+	{
+		return wheelRotation;
+	}
+
 	// ウィンドウのサイズ変更時の処理
 	static void resize( GLFWwindow *const window, int width, int height )
 	{
@@ -180,6 +191,11 @@ public:
 		{
 			// ワールド座標系に対するデバイス座標系の拡大率を更新する
 			instance->scale += static_cast< GLfloat >( y );
+
+			// マウスホイールの回転量を更新
+			instance->wheelRotation += y;
+			if ( instance->wheelRotation < -100.0 )		instance->wheelRotation = -100.0;
+			else if ( instance->wheelRotation > 49.0 )	instance->wheelRotation = 49.0;
 		}
 	}
 

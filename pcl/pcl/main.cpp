@@ -83,7 +83,7 @@ const GLsizei imapsize( 256 );
 const GLsizei emapsize( 256 );
 
 //
-// 天空画像のサンプリングによる陰影付けで使う変数群
+// DualFisheye画像のサンプリングによる陰影付けで使う変数群
 //
 // 拡散反射光のサンプル数
 const GLsizei diffuseSamples( 100 );
@@ -95,11 +95,10 @@ const GLint diffuseLod( 0 );
 const GLsizei specularSamples( 1 );
 
 // 鏡面反射光をサンプルする際のミップマップのレベル
-const GLint specularLod( 16 );
+const GLint specularLod( 0 );
 
 // サンプル点の散布半径
 const GLfloat radius( 0.1f );
-
 
 // 点群の型を定義しておく
 //typedef pcl::PointXYZ PointType;
@@ -189,13 +188,16 @@ void main()
 	// プログラムオブジェクトを作成する
 	const GLuint program( MyOpenGL::loadProgram( "point.vert", "point.frag" ) );
 
+	// 背景描画用のプログラムオブジェクトを作成する
+	const GLuint backgroundProgram( MyOpenGL::loadProgram( "background.vert", "background.frag" ) );
+
 	// 投影変換行列を求める
 	MyOpenGL::cameraMatrix( 30.f, 1.0f, 5.0f, 11.0f, temp1 );
 	// 視野変換行列を求める
 	MyOpenGL::lookAt( 0.0f, 0.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
-	// 透視投影変換行列をもとめる
+	// 透視投影変換行列を求める
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
-
+	// 法線ベクトルを視野座標系に変換する行列を求める
 	GLfloat transNormalMat[ 16 ];
 	MyOpenGL::loadNormal( temp0, transNormalMat );
 
@@ -203,6 +205,7 @@ void main()
 	const auto envImage( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
 
 	// uniform変数の場所を取得する
+	// point.vert/.frag
 	const GLint diffuseSamplesLoc	( glGetUniformLocation( program, "diffuseSamples" ) );
 	const GLint diffuseLodLoc		( glGetUniformLocation( program, "diffuseLod" ) );
 	const GLint envImageLoc			( glGetUniformLocation( program, "envImage" ) );
@@ -216,9 +219,19 @@ void main()
 	const GLint specularSamplesLoc	( glGetUniformLocation( program, "specularSamples" ) );
 	const GLint transNormalMatLoc	( glGetUniformLocation( program, "transNormalMat" ) );
 	const GLint transViewMat		( glGetUniformLocation( program, "transViewMat" ) );
+	// background.vert/.frag
+	const GLint backImageLoc		( glGetUniformLocation( backgroundProgram, "backImage" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename[objFile], false );
+
+	// 背景描画用の図形データを作成する
+	const GLuint back( []() 
+	{ 
+		GLuint vao;
+		glGenVertexArrays( 1, &vao );
+		return vao;
+	}( ) );
 
 	// 隠面消去処理を有効にする
 	glEnable( GL_DEPTH_TEST );
@@ -251,6 +264,23 @@ void main()
 		glActiveTexture( GL_TEXTURE2 );
 		glBindTexture( GL_TEXTURE_2D, emap[ 0 ] );
 
+		// 背景を描画する
+		glUseProgram( backgroundProgram );
+
+		glUniform1i( backImageLoc, 2 );
+
+		// テクスチャ番号２に環境マップを割り当てる
+		glActiveTexture( GL_TEXTURE2 );
+		glBindTexture( GL_TEXTURE_2D, envImage );
+
+
+		// 環境のテクスチャに画像を転送する
+		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), GL_RGB, GL_UNSIGNED_BYTE, frame.data );
+		glGenerateMipmap( GL_TEXTURE_2D );
+
+		glBindVertexArray( back );
+		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+
 		// シェーダプログラムの使用開始
 		glUseProgram( program );
 
@@ -278,8 +308,8 @@ void main()
 		glGenerateMipmap( GL_TEXTURE_2D );
 
 		// 図形を描画する
-		mesh.draw();
-		
+		//mesh.draw();
+
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();
 

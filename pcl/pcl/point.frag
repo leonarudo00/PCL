@@ -154,7 +154,7 @@ void main()
 	vec3 r = reflect( v, n.xyz );
 
 	// 正反射方向の色
-	vec4 spec = sample(r, 0);
+	vec4 spec = sample(r, diffuseLod);
 
 	// 正反射側の個々のサンプル点について
 	for (int i = 0; i < specularSamples; ++i)

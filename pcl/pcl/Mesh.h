@@ -182,8 +182,8 @@ public:
 		glBindVertexArray( vao );
 		glDrawElements( GL_TRIANGLES, indexes * 3, GL_UNSIGNED_INT, 0 );
 
-		//glBindVertexArray( vao2 );
-		//glDrawArrays( GL_LINES, 0, vertices * 2 );
+		glBindVertexArray( vao2 );
+		glDrawArrays( GL_LINES, 0, vertices * 2 );
 	}
 
 	// ñ@ê¸ÇÃï`âÊ
@@ -208,9 +208,9 @@ public:
 
 				++normalPos;
 
-				( *normalPos )[ 0 ] = ( *position )[ 0 ] + ( *normal )[ 0 ] * 0.1;
-				( *normalPos )[ 1 ] = ( *position )[ 1 ] + ( *normal )[ 1 ] * 0.1;
-				( *normalPos )[ 2 ] = ( *position )[ 2 ] + ( *normal )[ 2 ] * 0.1;
+				( *normalPos )[ 0 ] = ( *position )[ 0 ] - ( *normal )[ 0 ];
+				( *normalPos )[ 1 ] = ( *position )[ 1 ] - ( *normal )[ 1 ];
+				( *normalPos )[ 2 ] = ( *position )[ 2 ] - ( *normal )[ 2 ];
 
 				++normalPos;
 				++position;
