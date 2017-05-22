@@ -45,6 +45,74 @@ class Mesh
 	int		stacks;				// 縦の頂点数
 
 public:
+	//
+	// コンストラクタ
+	//
+	Mesh()
+	{
+		vertices = 4;
+		indexes = 6;
+
+		// 頂点配列オブジェクトを作成する
+		glGenVertexArrays( 1, &vao );
+		glBindVertexArray( vao );
+
+		// 頂点バッファオブジェクトを作成する
+		glGenBuffers( 1, &positionBuffer );
+		glBindBuffer( GL_ARRAY_BUFFER, positionBuffer );
+		glGenBuffers( 1, &indexBuffer );
+		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, indexBuffer );
+
+		// 頂点バッファオブジェクトにメモリ領域を確保する
+		glBufferData( GL_ARRAY_BUFFER, sizeof( Position ) * vertices, NULL, GL_DYNAMIC_DRAW );
+		glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( Face ) * indexes, NULL, GL_STATIC_DRAW );
+
+		// 頂点バッファオブジェクトのメモリをプログラムのメモリ空間にマップする
+		position = ( Position* )glMapBuffer( GL_ARRAY_BUFFER, GL_WRITE_ONLY );
+		face = ( Face* )glMapBuffer( GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY );
+
+		// 頂点位置を設定する
+		( *position )[ 0 ] = 0.0f;
+		( *position )[ 1 ] = 0.0f;
+		( *position )[ 2 ] = 0.0f;
+		position++;
+
+		( *position )[ 0 ] = 2.05f;
+		( *position )[ 1 ] = 0.0f;
+		( *position )[ 2 ] = 0.0f;
+		position++;
+
+		( *position )[ 0 ] = 2.05f;
+		( *position )[ 1 ] = 0.0f;
+		( *position )[ 2 ] = 2.93f;
+		position++;
+
+		( *position )[ 0 ] = 0.0f;
+		( *position )[ 1 ] = 0.0f;
+		( *position )[ 2 ] = 2.93f;
+
+		// 頂点バッファオブジェクトのメモリをプログラムのメモリ空間から切り離す
+		glUnmapBuffer( GL_ARRAY_BUFFER );
+
+		// 頂点バッファオブジェクトをattribute変数に対応づける
+		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 );
+		// 0番のattrib変数を使用可能にする
+		glEnableVertexAttribArray( 0 );
+
+		face[ 0 ][ 0 ] = 0;
+		face[ 0 ][ 1 ] = 1;
+		face[ 0 ][ 2 ] = 2;
+
+		face[ 1 ][ 0 ] = 0;
+		face[ 1 ][ 1 ] = 2;
+		face[ 1 ][ 2 ] = 3;
+
+		// 頂点バッファオブジェクトのメモリをプログラムのメモリ空間から切り離す
+		glUnmapBuffer( GL_ELEMENT_ARRAY_BUFFER );
+
+		// 頂点バッファオブジェクトの結合を解除する
+		glBindVertexArray( 0 );
+	}
 	// コンストラクタ
 	// slices: 横の頂点数
 	// stacks: 縦の頂点数

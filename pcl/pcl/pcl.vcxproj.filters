@@ -30,12 +30,6 @@
     <None Include="point.frag">
       <Filter>シェーダファイル</Filter>
     </None>
-    <None Include="background.frag">
-      <Filter>シェーダファイル</Filter>
-    </None>
-    <None Include="background.vert">
-      <Filter>シェーダファイル</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MyOpenGL.h">

@@ -25,7 +25,6 @@
 #include "Mesh.h"
 #include "MyOpenGL.h"
 
-
 // 投影変換行列
 GLfloat projectionMatrix[ 16 ];
 
@@ -41,12 +40,13 @@ const int captureWidth( 1280 ), captureHeight( 720 );
 // objデータ名
 const char *const filename[] = 
 {
-	"ball.obj",
-	"bunny.obj",
-	"mario.obj"
+	"ball.obj",			// 0
+	"bunny.obj",		// 1
+	"mario.obj",		// 2
+	"colorChecker.obj"	// 3
 };
 // 使用するobjファイル番号
-const int objFile( 0 );
+const int objFile( 3 );
 
 //
 // 放射照度マップによる陰影付けで使う変数群
@@ -86,10 +86,10 @@ const GLsizei emapsize( 256 );
 // DualFisheye画像のサンプリングによる陰影付けで使う変数群
 //
 // 拡散反射光のサンプル数
-const GLsizei diffuseSamples( 100 );
+const GLsizei diffuseSamples( 200 );
 
 // 拡散反射光をサンプルする際のミップマップのレベル
-const GLint diffuseLod( 0 );
+const GLint diffuseLod( 5 );
 
 // 鏡面反射光のサンプル数
 const GLsizei specularSamples( 1 );
@@ -99,6 +99,9 @@ const GLint specularLod( 0 );
 
 // サンプル点の散布半径
 const GLfloat radius( 0.1f );
+
+// カラーチェッカー画像
+const char colorCheckerFile[] = "colorChecker.tga";
 
 // 点群の型を定義しておく
 //typedef pcl::PointXYZ PointType;
@@ -121,7 +124,11 @@ void main()
 {
 	// カメラの使用を開始する
 	cv::VideoCapture cap( captureDevice );
-	if ( !cap.isOpened() ) return;
+	if ( !cap.isOpened() )
+	{
+		std::cerr << "Can't open camera." << std::endl;
+		return;
+	}
 
 	// カメラ解像度を設定する
 	cap.set( CV_CAP_PROP_FRAME_WIDTH, captureWidth );
@@ -148,7 +155,7 @@ void main()
 	Window window;
 
 	// OpenGLの初期設定
-	glClearColor( 0.0f, 0.0f, 0.3f, 0.0f );
+	glClearColor( 1.0f, 1.0f, 1.0f, 0.0f );
 	//glEnable( GL_NORMALIZE );
 	glEnable( GL_DEPTH_TEST );
 	glEnable( GL_CULL_FACE );
@@ -185,16 +192,10 @@ void main()
 	glEnable( GL_TEXTURE_2D );
 	MyOpenGL::reflection();
 
-	// プログラムオブジェクトを作成する
-	const GLuint program( MyOpenGL::loadProgram( "point.vert", "point.frag" ) );
-
-	// 背景描画用のプログラムオブジェクトを作成する
-	const GLuint backgroundProgram( MyOpenGL::loadProgram( "background.vert", "background.frag" ) );
-
 	// 投影変換行列を求める
-	MyOpenGL::cameraMatrix( 30.f, 1.0f, 5.0f, 11.0f, temp1 );
+	MyOpenGL::cameraMatrix( 30.f, 1.0f, 5.0f, 20.0f, temp1 );
 	// 視野変換行列を求める
-	MyOpenGL::lookAt( 0.0f, 0.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
+	MyOpenGL::lookAt( 4.0f, 5.0f, 6.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, temp0 );
 	// 透視投影変換行列を求める
 	MyOpenGL::multiplyMatrix( temp0, temp1, projectionMatrix );
 	// 法線ベクトルを視野座標系に変換する行列を求める
@@ -204,8 +205,13 @@ void main()
 	// 環境のテクスチャを準備する
 	const auto envImage( MyOpenGL::createTexture( GL_RGB, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), diffuseLod ) );
 
+	// プログラムオブジェクトを作成する
+	const GLuint program( MyOpenGL::loadProgram( "point.vert", "point.frag" ) );
+
 	// uniform変数の場所を取得する
 	// point.vert/.frag
+	const GLint colorLoc			( glGetUniformLocation( program, "color" ) );
+	const GLint colorCheckerImageLoc( glGetUniformLocation( program, "colorCheckerImage" ) );
 	const GLint diffuseSamplesLoc	( glGetUniformLocation( program, "diffuseSamples" ) );
 	const GLint diffuseLodLoc		( glGetUniformLocation( program, "diffuseLod" ) );
 	const GLint envImageLoc			( glGetUniformLocation( program, "envImage" ) );
@@ -219,30 +225,36 @@ void main()
 	const GLint specularSamplesLoc	( glGetUniformLocation( program, "specularSamples" ) );
 	const GLint transNormalMatLoc	( glGetUniformLocation( program, "transNormalMat" ) );
 	const GLint transViewMat		( glGetUniformLocation( program, "transViewMat" ) );
-	// background.vert/.frag
-	const GLint backImageLoc		( glGetUniformLocation( backgroundProgram, "backImage" ) );
 
 	// 図形データを作成する
 	Mesh mesh( filename[objFile], false );
-
-	// 背景描画用の図形データを作成する
-	const GLuint back( []() 
-	{ 
-		GLuint vao;
-		glGenVertexArrays( 1, &vao );
-		return vao;
-	}( ) );
+	//Mesh mesh( 10, 10 );
+	//Mesh mesh;
 
 	// 隠面消去処理を有効にする
 	glEnable( GL_DEPTH_TEST );
 
+	GLuint colorCheckerTexture;
+	GLsizei colorCheckerWidth, colorCheckerHeight;
+	GLenum colorCheckerFormat;
+	glGenTextures( 1, &colorCheckerTexture );
+	GLubyte *colorCheckerBuffer = MyOpenGL::loadTga( colorCheckerFile, &colorCheckerWidth, &colorCheckerHeight, &colorCheckerFormat );
+	glActiveTexture( GL_TEXTURE4 );
+	glBindTexture( GL_TEXTURE_2D, colorCheckerTexture );
+	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, colorCheckerWidth, colorCheckerHeight, 0, colorCheckerFormat, GL_UNSIGNED_BYTE, colorCheckerBuffer );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+
+	
 	// ウィンドウが開いている間繰り返す
 	while ( window.shouldClose() == GL_FALSE )
 	{
 		// キャプチャした画像を表示する
 		cv::Mat frame;
 		cap >> frame;
-		//if ( !frame.empty() ) cv::imshow( "image", frame );
+		if ( !frame.empty() ) cv::imshow( "image", frame );
 
 		// ウィンドウを消去する
 		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -264,30 +276,14 @@ void main()
 		glActiveTexture( GL_TEXTURE2 );
 		glBindTexture( GL_TEXTURE_2D, emap[ 0 ] );
 
-		// 背景を描画する
-		glUseProgram( backgroundProgram );
-
-		glUniform1i( backImageLoc, 2 );
-
-		// テクスチャ番号２に環境マップを割り当てる
-		glActiveTexture( GL_TEXTURE2 );
-		glBindTexture( GL_TEXTURE_2D, envImage );
-
-
-		// 環境のテクスチャに画像を転送する
-		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, cap.get( CV_CAP_PROP_FRAME_WIDTH ), cap.get( CV_CAP_PROP_FRAME_HEIGHT ), GL_RGB, GL_UNSIGNED_BYTE, frame.data );
-		glGenerateMipmap( GL_TEXTURE_2D );
-
-		glBindVertexArray( back );
-		glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
-
 		// シェーダプログラムの使用開始
 		glUseProgram( program );
 
 		// uniform変数に値を設定する
+		glUniform1i			( colorCheckerImageLoc, 4 );
 		glUniform1i			( diffuseLodLoc,		diffuseLod );
 		glUniform1i			( diffuseSamplesLoc,	diffuseSamples );
-		glUniform1i			( envImageLoc,			2 );
+		glUniform1i			( envImageLoc,			5 );
 		glUniform1i			( irrmapLoc,			1 );
 		glUniform1i			( specularLodLoc,		specularLod );
 		glUniform1i			( specularSamplesLoc,	specularSamples );
@@ -300,7 +296,7 @@ void main()
 		glUniformMatrix4fv	( transViewMat,			1, GL_FALSE, temp0 );
 
 		// テクスチャ番号２に環境マップを割り当てる
-		glActiveTexture( GL_TEXTURE2 );
+		glActiveTexture( GL_TEXTURE5 );
 		glBindTexture( GL_TEXTURE_2D, envImage );
 
 		// 環境のテクスチャに画像を転送する
@@ -308,7 +304,7 @@ void main()
 		glGenerateMipmap( GL_TEXTURE_2D );
 
 		// 図形を描画する
-		//mesh.draw();
+		mesh.draw();
 
 		// カラーバッファを入れ替えてイベントを取り出す
 		window.swapBuffers();

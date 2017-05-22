@@ -5,16 +5,21 @@
 // 0 : ライブ放射照度マッピング
 // 1 : 環境マッピング
 // 2 : 事前計算済みの放射照度マッピング
+// 3 : テクスチャマッピング
 #define MAPPING_MODE 0
 
-in		vec4		p;						// ローカル座標系での頂点位置
-in		vec4		n;						// ローカル座標系での頂点法線
+in		vec2		texcoord;				// テクスチャ座標
+in		vec4		localPosition;			// ローカル座標系での頂点位置
+in		vec4		p;						// 視点座標系での頂点位置
+in		vec4		n;						// 視点座標系での頂点法線
 out		vec4		fragment;				// 画素の色
 uniform int			diffuseLod;				// 拡散反射光をサンプルするミップマップのレベル
 uniform int			diffuseSamples;			// 拡散反射光のサンプル点の数
 uniform int			specularLod;			// 鏡面反射光をサンプルするミップマップのレベル
 uniform int			specularSamples;		// 鏡面反射光のサンプル点の数
 uniform float		radius;					// サンプル点の散布半径
+uniform sampler2D	color;					// カラーのレンダーターゲットのテクスチャ
+uniform sampler2D	colorCheckerImage;		// カラーチェッカーのテクスチャ
 uniform	sampler2D	irrmap;					// 放射照度マップ
 uniform sampler2D	envImage;				// 環境のテクスチャ
 
@@ -101,6 +106,9 @@ vec4 sampler(inout uint seed, in float e)
 
 void main()
 {
+	// テクスチャの色＝アルベド
+	vec4 albedo = texture(colorCheckerImage, texcoord );
+	//vec4 albedo = vec4(1.0,1.0,1.0,1.0);
 
 #if MAPPING_MODE == 0
 	//
@@ -137,9 +145,10 @@ void main()
 	
 	// 平均をだして放射照度を決める
 	idiff /= float(diffuseSamples);
+	idiff += vec4(0.2,0.2,0.2,1.0);
 
 	// フレネル項
-	vec4 fresnel = vec4( vec3( 0.1 ), 1.0 );
+	vec4 fresnel = vec4( vec3( 0.0 ), 1.0 );
 	
 	// 視線ベクトル
 	vec3 v = normalize( p.xyz );
@@ -154,7 +163,7 @@ void main()
 	vec3 r = reflect( v, n.xyz );
 
 	// 正反射方向の色
-	vec4 spec = sample(r, diffuseLod);
+	vec4 spec = sample(r, 0);
 
 	// 正反射側の個々のサンプル点について
 	for (int i = 0; i < specularSamples; ++i)
@@ -175,7 +184,7 @@ void main()
 
 	// 画素の陰影を求める
 	fresnel.a = 0.0;
-	vec4 color = mix( idiff, spec, fresnel );
+	vec4 color = mix( albedo.zyxw * idiff, spec, fresnel );
 	fragment = vec4( color.zyx, color.w );
 
 #elif MAPPING_MODE == 1
@@ -197,6 +206,8 @@ void main()
 
 	// 放射照度マップのカラーを取得
 	vec4 irrColor = texture( irrmap, st );
-
+#elif MAPPING_MODE == 3
+	vec4 color = texture(colorCheckerImage, texcoord );
+	fragment = vec4( color.xyz, color.w );
 #endif
 }

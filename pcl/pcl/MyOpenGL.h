@@ -1095,5 +1095,25 @@ namespace MyOpenGL{
 		glLoadMatrixf( paraboloid );
 	}
 
+	void setupTexture( GLuint texID, const char *file, const int width, const int height, const GLenum format )
+	{
+		// Step2. 画像データのロード
+		std::ifstream fstr( file, std::ios::binary );
+		assert( fstr );
 
+		const size_t fileSize = static_cast<size_t>( fstr.seekg( 0, fstr.end ).tellg() );
+		fstr.seekg( 0, fstr.beg );
+		std::vector<char> textureBuffer( fileSize );
+		fstr.read( &textureBuffer[ 0 ], fileSize );
+
+		// Step3. 画像データとテクスチャiDを結びつける
+		glBindTexture( GL_TEXTURE_2D, texID );
+		glTexImage2D( GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, &textureBuffer[ 0 ] );
+
+		// Step4. テクスチャの各種設定
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+	}
 }

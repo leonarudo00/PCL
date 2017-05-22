@@ -148,8 +148,6 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="background.frag" />
-    <None Include="background.vert" />
     <None Include="packages.config" />
     <None Include="point.frag" />
     <None Include="point.vert" />
